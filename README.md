@@ -41,11 +41,11 @@ Add `~/.local/bin` to your PATH if it's not already there.
 
 ## Dependencies
 
-- **Required:** `bash`, `yt-dlp`, `jq`, `curl`, `mpv`, `fzf`, `chafa`,`ffmpeg` (for fzf thumbnails)
+- **Required:** `bash`, `yt-dlp`, `jq`, `curl`, `mpv`, `fzf`, `chafa`(for fzf thumbnails),`ffmpeg` ,`xh`
 - **Optional:** `rofi`
 
 Install on Arch Linux:
-`sudo pacman -S yt-dlp jq curl mpv fzf chafa rofi ffmpeg`
+`sudo pacman -S yt-dlp jq curl mpv fzf chafa rofi ffmpeg xh`
 
 ## Usage
 
