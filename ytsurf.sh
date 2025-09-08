@@ -537,25 +537,26 @@ fetch_search_results() {
 	fi
 
 	# Parse results
-	local parsed_data
-	parsed_data=$(echo "$json_data" |
-		grep -oP 'var ytInitialData = \{.*?\};' |
-		sed 's/^var ytInitialData = //' | sed 's/;$//' |
-		jq -r "
-        [
-          .. | objects |
-          select(has(\"videoRenderer\")) |
-          .videoRenderer | {
-            title: .title.runs[0].text,
-            id: .videoId,
-            author: .longBylineText.runs[0].text,
-            published: .publishedTimeText.simpleText,
-            duration: .lengthText.simpleText,
-            views: .viewCountText.simpleText,
-            thumbnail: (.thumbnail.thumbnails | sort_by(.width) | last.url)
-          }
-        ] | .[:${limit}]
-        " 2>/dev/null)
+  local parsed_data
+  parsed_data=$(echo "$json_data" |
+      sed -n '/var ytInitialData = {/,/};$/p' |
+      sed '1s/^.*var ytInitialData = //' |
+      sed '$s/;$//' |
+      jq -r "
+      [
+        .. | objects |
+        select(has(\"videoRenderer\")) |
+        .videoRenderer | {
+          title: .title.runs[0].text,
+          id: .videoId,
+          author: .longBylineText.runs[0].text,
+          published: .publishedTimeText.simpleText,
+          duration: .lengthText.simpleText,
+          views: .viewCountText.simpleText,
+          thumbnail: (.thumbnail.thumbnails | sort_by(.width) | last.url)
+        }
+      ] | .[:${limit}]
+      " 2>/dev/null)
 
 	if [[ -z "$parsed_data" || "$parsed_data" == "null" ]]; then
 		echo "Error: Failed to parse search results." >&2
