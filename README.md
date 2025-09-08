@@ -71,6 +71,9 @@ ytsurf --history
 #use rofi instead of fzf
 ytsurf --rofi
 
+#use sentaku instead of fzf or rofi(for RISC-V)
+ytsurf --sentaku
+
 # interactive use
 ytsurf
 

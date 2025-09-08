@@ -3,7 +3,7 @@ set -euo pipefail
 
 #=============================================================================
 # ytsurf - search, stream, or download YouTube videos from your terminal 🎵📺
-# Version: 1.8.0
+# Version: 1.9.0
 #=============================================================================
 
 # Exit if not running in bash
@@ -16,13 +16,14 @@ fi
 # CONSTANTS AND DEFAULTS
 #=============================================================================
 
-readonly SCRIPT_VERSION="1.8.0"
+readonly SCRIPT_VERSION="1.9.0"
 readonly SCRIPT_NAME="ytsurf"
 
 # Default configuration values
 DEFAULT_LIMIT=10
 DEFAULT_AUDIO_ONLY=false
 DEFAULT_USE_ROFI=false
+DEFAULT_USE_SENTAKU=false
 DEFAULT_DOWNLOAD_MODE=false
 DEFAULT_HISTORY_MODE=false
 DEFAULT_FORMAT_SELECTION=false
@@ -42,6 +43,7 @@ readonly CONFIG_FILE="$CONFIG_DIR/config"
 limit="$DEFAULT_LIMIT"
 audio_only="$DEFAULT_AUDIO_ONLY"
 use_rofi="$DEFAULT_USE_ROFI"
+use_sentaku="$DEFAULT_USE_SENTAKU"
 download_mode="$DEFAULT_DOWNLOAD_MODE"
 history_mode="$DEFAULT_HISTORY_MODE"
 format_selection="$DEFAULT_FORMAT_SELECTION"
@@ -121,7 +123,7 @@ check_dependencies() {
 	local missing_deps=()
 
 	# Required dependencies
-	local required_deps=("yt-dlp" "mpv" "jq" "xh")
+	local required_deps=("yt-dlp" "mpv" "jq" "xh" "curl")
 	for dep in "${required_deps[@]}"; do
 		if ! command -v "$dep" &>/dev/null; then
 			missing_deps+=("$dep")
@@ -129,8 +131,8 @@ check_dependencies() {
 	done
 
 	# Menu system dependency (at least one required)
-	if ! command -v "fzf" &>/dev/null && ! command -v "rofi" &>/dev/null; then
-		missing_deps+=("fzf or rofi")
+	if ! command -v "fzf" &>/dev/null && ! command -v "rofi" &>/dev/null && ! command -v "sentaku" &>/dev/null; then
+		missing_deps+=("fzf or rofi or sentaku")
 	fi
 
 	# Thumbnail dependency (optional but recommended)
@@ -164,6 +166,10 @@ parse_arguments() {
 			use_rofi=true
 			shift
 			;;
+    --sentaku)
+      use_sentaku=true 
+      shift 
+      ;;
 		--audio)
 			audio_only=true
 			shift
@@ -210,37 +216,22 @@ select_action() {
 
 	if [[ "$use_rofi" == true ]]; then
 		chosen_action=$(printf "%s\n" "${items[@]}" | rofi -dmenu -p "$prompt" -mesg "$header")
-	elif [[ "$use_rofi" == false ]]; then
+	elif [[ "$use_sentaku" == true ]]; then
+    chosen_action=$(printf "%s\n" "${items[@]}" | sentaku )
+  else
 		chosen_action=$(printf "%s\n" "${items[@]}" | fzf --prompt="$prompt" --header="$header")
 	fi
 
 	if [[ "$chosen_action" == "watch" ]]; then
 		echo false
+  elif [[ -z "$chosen_action" ]];then
+    return 1
 	else
 		echo true
 	fi
 	return 0
 }
 
-#=============================================================================
-# CONTENT TYPE SELECTION
-#=============================================================================
-
-select_content() {
-	echo "action"
-	local chosen_action
-	local prompt="Select Action:"
-	local header="Available Actions"
-	local items=("watch" "download")
-
-	if [[ "$use_rofi" == true ]]; then
-		chosen_action=$(printf "%s\n" "${items[@]}" | rofi -dmenu -p "$prompt" -mesg "$header")
-	elif [[ "$use_rofi" == false ]]; then
-		chosen_action=$(printf "%s\n" "${items[@]}" | fzf --prompt="$prompt" --header="$header")
-	fi
-	echo "$chosen_action"
-	return 0
-}
 #=============================================================================
 # FORMAT SELECTION
 #=============================================================================
@@ -277,6 +268,8 @@ select_format() {
 
 	if [[ "$use_rofi" = true ]]; then
 		chosen_res=$(printf "%s\n" "${format_options[@]}" | rofi -dmenu -p "$prompt" -mesg "$header")
+	elif [[ "$use_sentaku" == true ]]; then
+		chosen_res=$(printf "%s\n" "${format_options[@]}" | sentaku)
 	else
 		chosen_res=$(printf "%s\n" "${format_options[@]}" | fzf --prompt="$prompt" --header="$header")
 	fi
@@ -650,7 +643,10 @@ select_from_menu() {
 	local selected_item=""
 	if [[ "$use_rofi" = true ]] && command -v rofi &>/dev/null; then
 		selected_item=$(create_preview_script_rofi | rofi -dmenu -show-icons)
-	elif command -v fzf &>/dev/null; then
+	elif [[ "$use_sentaku" == true ]] && command -v sentaku &>/dev/null; then
+    selected_item=$(printf "%s\n" "${menu_items[@]}" | sed 's/ /␣/g'| sentaku)
+    selected_item=$(sed 's/␣/ /g' <<<"$selected_item")	
+  elif command -v fzf &>/dev/null; then
 		local preview_script
 		preview_script=$(create_preview_script_fzf "$is_history")
 
@@ -686,6 +682,7 @@ handle_search_mode() {
 	# Select video
 	local selected_title
 	selected_title=$(select_from_menu "${menu_list[@]}" "Search YouTube:" "$json_data" false)
+  echo "$selected_title"
 
 	if [[ -z "$selected_title" ]]; then
 		echo "No selection made."
