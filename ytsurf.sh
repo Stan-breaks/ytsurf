@@ -114,7 +114,7 @@ load_config() {
 
 # Setup cleanup trap
 setup_cleanup() {
-	TMPDIR=$(mktemp -d)
+	TMPDIR=$(mktemp -d -t)
 	trap 'rm -rf "$TMPDIR"' EXIT
 }
 
