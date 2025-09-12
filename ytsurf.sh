@@ -3,7 +3,7 @@ set -euo pipefail
 
 #=============================================================================
 # ytsurf - search, stream, or download YouTube videos from your terminal 🎵📺
-# Version: 1.9.2
+# Version: 1.9.3
 #=============================================================================
 
 # Exit if not running in bash
@@ -16,7 +16,7 @@ fi
 # CONSTANTS AND DEFAULTS
 #=============================================================================
 
-readonly SCRIPT_VERSION="1.9.2"
+readonly SCRIPT_VERSION="1.9.3"
 readonly SCRIPT_NAME="ytsurf"
 
 # Default configuration values
