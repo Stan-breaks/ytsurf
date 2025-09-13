@@ -1,6 +1,6 @@
 # ytsurf
 
-A simple shell script to search YouTube videos from your terminal and play them with mpv.
+A simple shell script to search YouTube videos from your terminal and play them with mpv or download them.
 
 ## Demo
 <img width="1366" height="768" alt="250814_13h56m36s_screenshot" src="https://github.com/user-attachments/assets/0771f53b-ad16-41a2-9938-9aaaf0eaa1ae" />
