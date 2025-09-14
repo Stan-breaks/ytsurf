@@ -3,7 +3,7 @@ set -euo pipefail
 
 #=============================================================================
 # ytsurf - search, stream, or download YouTube videos from your terminal 🎵📺
-# Version: 1.9.4
+# Version: 1.9.5
 #=============================================================================
 
 # Exit if not running in bash
@@ -16,7 +16,7 @@ fi
 # CONSTANTS AND DEFAULTS
 #=============================================================================
 
-readonly SCRIPT_VERSION="1.9.4"
+readonly SCRIPT_VERSION="1.9.5"
 readonly SCRIPT_NAME="ytsurf"
 
 # Default configuration values
@@ -114,7 +114,8 @@ load_config() {
 
 # Setup cleanup trap
 setup_cleanup() {
-  TMPDIR=$(mktemp -d -t)
+  # Try GNU mktemp first, fallback to BSD/macOS mktemp
+  TMPDIR=$(mktemp -d 2>/dev/null || mktemp -d -t ytsurf.XXXXXX)
   trap 'rm -rf "$TMPDIR"' EXIT
 }
 
