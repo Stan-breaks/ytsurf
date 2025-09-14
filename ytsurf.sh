@@ -323,12 +323,12 @@ perform_action() {
 
   if [[ "$download_mode" = true ]]; then
     if command -v notify-send >/dev/null 2>&1; then
-      notify-send -t 5000 -i "$img_path" "Ytsurf" "Downloading to $video_title"
+      notify-send -t 5000 -i "$img_path" "Ytsurf" "Downloading to $video_title" || true
     fi
     download_video "$video_url" "$format_code"
   else
     if command -v notify-send >/dev/null 2>&1; then
-      notify-send -t 5000 -i "$img_path" "Ytsurf" "Playing $video_title"
+      notify-send -t 5000 -i "$img_path" "Ytsurf" "Playing $video_title" || true
     fi
     play_video "$video_url" "$format_code"
   fi
