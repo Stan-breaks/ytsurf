@@ -28,6 +28,7 @@ DEFAULT_DOWNLOAD_MODE=false
 DEFAULT_HISTORY_MODE=false
 DEFAULT_FORMAT_SELECTION=false
 DEFAULT_MAX_HISTORY_ENTRIES=100
+DEFAULT_NOTIFY=true
 
 # System directories
 readonly CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/$SCRIPT_NAME"
@@ -49,6 +50,9 @@ history_mode="$DEFAULT_HISTORY_MODE"
 format_selection="$DEFAULT_FORMAT_SELECTION"
 download_dir="${XDG_DOWNLOAD_DIR:-$HOME/Downloads}"
 max_history_entries="$DEFAULT_MAX_HISTORY_ENTRIES"
+notify="$DEFAULT_NOTIFY"
+
+command -v notify-send >/dev/null 2>&1 && notify="true" || notify="false" # check if notify-send is installed
 
 # Runtime variables
 query=""
@@ -78,7 +82,7 @@ OPTIONS:
 
 CONFIG:
   $CONFIG_FILE can contain default options like:
-    limit=15
+    limit=5
     audio_only=true
     use_rofi=true
 
@@ -323,12 +327,12 @@ perform_action() {
   echo "▶ Performing action on: $video_title"
 
   if [[ "$download_mode" = true ]]; then
-    if command -v notify-send >/dev/null 2>&1; then
+    if "$notify"; then
       notify-send -t 5000 -i "$img_path" "Ytsurf" "Downloading to $video_title" || true
     fi
     download_video "$video_url" "$format_code"
   else
-    if command -v notify-send >/dev/null 2>&1; then
+    if "$notify"; then
       notify-send -t 5000 -i "$img_path" "Ytsurf" "Playing $video_title" || true
     fi
     play_video "$video_url" "$format_code"
