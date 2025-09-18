@@ -29,6 +29,7 @@ DEFAULT_HISTORY_MODE=false
 DEFAULT_FORMAT_SELECTION=false
 DEFAULT_MAX_HISTORY_ENTRIES=100
 DEFAULT_NOTIFY=true
+DEFAULT_USE_EXTERNAL_MENU=false
 
 # System directories
 readonly CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/$SCRIPT_NAME"
@@ -51,6 +52,7 @@ format_selection="$DEFAULT_FORMAT_SELECTION"
 download_dir="${XDG_DOWNLOAD_DIR:-$HOME/Downloads}"
 max_history_entries="$DEFAULT_MAX_HISTORY_ENTRIES"
 notify="$DEFAULT_NOTIFY"
+use_external_menu="$DEFAULT_USE_EXTERNAL_MENU"
 
 command -v notify-send >/dev/null 2>&1 && notify="true" || notify="false" # check if notify-send is installed
 
@@ -99,26 +101,15 @@ print_version() {
   echo "$SCRIPT_NAME v$SCRIPT_VERSION"
 }
 
-# Initialize directories and files
-init_directories() {
+# configuration
+configuration() {
   mkdir -p "$CACHE_DIR" "$CONFIG_DIR"
-
-  if [[ ! -f "$HISTORY_FILE" ]]; then
-    echo "[]" >"$HISTORY_FILE"
-  fi
-}
-
-# Load configuration from file
-load_config() {
-  if [[ -f "$CONFIG_FILE" ]]; then
-    # shellcheck source=/dev/null
-    source "$CONFIG_FILE"
-  fi
+  [ ! -f "$HISTORY_FILE" ] || echo "[]" >"$HISTORY_FILE"
+  [ -f "$CONFIG_FILE" ] || source "$CONFIG_FILE"
 }
 
 # Setup cleanup trap
 setup_cleanup() {
-  # Try GNU mktemp first, fallback to BSD/macOS mktemp
   TMPDIR=$(mktemp -d 2>/dev/null || mktemp -d -t ytsurf.XXXXXX)
   trap 'rm -rf "$TMPDIR"' EXIT
 }
@@ -155,7 +146,6 @@ check_dependencies() {
 #=============================================================================
 # ARGUMENT PARSING
 #=============================================================================
-
 parse_arguments() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -163,8 +153,7 @@ parse_arguments() {
       print_help
       exit 0
       ;;
-    --version | -v)
-      print_version
+    --version | -V)
       exit 0
       ;;
     --rofi)
@@ -207,6 +196,19 @@ parse_arguments() {
       ;;
     esac
   done
+}
+
+# Send notications
+send_notification() {
+  if [ "$use_external_menu" = "false" ] || [ -z "$use_external_menu" ]; then
+    [ -z "$4" ] && printf "\33[2K\r\033[1;34m%s\n\033[0m" "$1" && return
+    [ -n "$4" ] && printf "\33[2K\r\033[1;34m%s - %s\n\033[0m" "$1" "$4" && return
+  fi
+  [ -z "$2" ] && timeout=3000 || timeout="$2" # default timeout is 3 seconds
+  if [ "$notify" = "true" ]; then
+    [ -z "$3" ] && notify-send "$1" "$4" -t "$timeout" -h string:x-dunst-stack-tag:vol # the -h string:x-dunst-stack-tag:vol is used for overriding previous notifications
+    [ -n "$3" ] && notify-send "$1" "$4" -t "$timeout" -i "$3" -h string:x-dunst-stack-tag:vol
+  fi
 }
 
 #=============================================================================
@@ -432,7 +434,7 @@ add_to_history() {
 }
 
 handle_history_mode() {
-  if [[ ! -s "$HISTORY_FILE" ]]; then
+  if [[ ! -z "$HISTORY_FILE" ]]; then
     echo "No viewing history found."
     exit 0
   fi
@@ -533,7 +535,7 @@ fetch_search_results() {
   local encoded_query
   encoded_query=$(printf '%s' "$search_query" | jq -sRr @uri)
 
-  if ! json_data=$(xh "https://www.youtube.com/results?search_query=${encoded_query}&sp=EgIQAQ%253D%253D&hl=en&gl=US" 2>/dev/null); then
+  if ! json_data=$(curl "https://www.youtube.com/results?search_query=${encoded_query}&sp=EgIQAQ%253D%253D&hl=en&gl=US" 2>/dev/null); then
     echo "Error: Failed to fetch search results." >&2
     return 1
   fi
@@ -670,7 +672,7 @@ select_from_menu() {
   echo "$selected_item"
 }
 
-handle_search_mode() {
+handle_search() {
   get_search_query
 
   local json_data
@@ -728,27 +730,23 @@ handle_search_mode() {
   perform_action "$video_url" "$selected_title" "$img_path"
 }
 
-#=============================================================================
 # MAIN EXECUTION
-#=============================================================================
-
 main() {
-  # Initialize environment
-  init_directories
-  load_config
-  setup_cleanup
-  check_dependencies
-
-  # Parse command line arguments
-  parse_arguments "$@"
-
-  # Execute appropriate mode
-  if [[ "$history_mode" = true ]]; then
-    handle_history_mode
-  else
-    handle_search_mode
-  fi
+  STATE="SEARCH"
+  while :; do
+    case "$STATE" in
+    SEARCH) handle_search_mode ;;
+    PLAY) choose_media ;;
+    HISTORY) handle_history_mode ;;
+    EXIT) break ;;
+    *) break ;;
+    esac
+  done
 }
 
 # Run main function with all arguments
-main "$@"
+configuration 
+setup_cleanup
+check_dependencies
+parse_arguments "$@"
+main
