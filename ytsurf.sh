@@ -29,7 +29,6 @@ DEFAULT_HISTORY_MODE=false
 DEFAULT_FORMAT_SELECTION=false
 DEFAULT_MAX_HISTORY_ENTRIES=100
 DEFAULT_NOTIFY=true
-DEFAULT_USE_EXTERNAL_MENU=false
 
 # System directories
 readonly CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/$SCRIPT_NAME"
@@ -52,9 +51,9 @@ format_selection="$DEFAULT_FORMAT_SELECTION"
 download_dir="${XDG_DOWNLOAD_DIR:-$HOME/Downloads}"
 max_history_entries="$DEFAULT_MAX_HISTORY_ENTRIES"
 notify="$DEFAULT_NOTIFY"
-use_external_menu="$DEFAULT_USE_EXTERNAL_MENU"
 
 command -v notify-send >/dev/null 2>&1 && notify="true" || notify="false" # check if notify-send is installed
+
 
 # Runtime variables
 query=""
@@ -63,6 +62,19 @@ TMPDIR=""
 #=============================================================================
 # UTILITY FUNCTIONS
 #=============================================================================
+
+# Send notications
+send_notification() {
+  if [ "$use_rofi" = false ] && [ "$use_sentaku" = false ]; then
+    [ -z "$2" ] && printf "\33[2K\r\033[1;34m%s\n\033[0m" "$1" && return
+    [ -n "$2" ] && printf "\33[2K\r\033[1;34m%s - %s\n\033[0m" "$1" "$2" && return
+  fi
+  timeout=5000
+  if [ "$notify" = "true" ]; then
+    [ -z "${3:-}" ] && notify-send "$1" "$2" -t "$timeout"
+    [ -n "${3:-}" ] && notify-send "$1" "$2" -t "$timeout" -i "$3"
+  fi
+}
 
 # Print help message
 print_help() {
@@ -104,7 +116,7 @@ print_version() {
 # configuration
 configuration() {
   mkdir -p "$CACHE_DIR" "$CONFIG_DIR"
-  [ ! -f "$HISTORY_FILE" ] || echo "[]" >"$HISTORY_FILE"
+  [ -f "$HISTORY_FILE" ] || echo "[]" > "$HISTORY_FILE"
   [ -f "$CONFIG_FILE" ] || source "$CONFIG_FILE"
 }
 
@@ -119,7 +131,7 @@ check_dependencies() {
   local missing_deps=()
 
   # Required dependencies
-  local required_deps=("yt-dlp" "mpv" "jq" "xh" "curl")
+  local required_deps=("yt-dlp" "mpv" "jq" "curl")
   for dep in "${required_deps[@]}"; do
     if ! command -v "$dep" &>/dev/null; then
       missing_deps+=("$dep")
@@ -137,7 +149,7 @@ check_dependencies() {
   fi
 
   if [[ ${#missing_deps[@]} -ne 0 ]]; then
-    echo "Error: Missing required dependencies: ${missing_deps[*]}" >&2
+    "Error: Missing required dependencies: ${missing_deps[*]}" >&2
     echo "Please install the missing packages and try again." >&2
     exit 1
   fi
@@ -186,7 +198,7 @@ parse_arguments() {
         limit="$1"
         shift
       else
-        echo "Error: --limit requires a number" >&2
+        send_notification "Error" "--limit requires a number"
         exit 1
       fi
       ;;
@@ -198,18 +210,7 @@ parse_arguments() {
   done
 }
 
-# Send notications
-send_notification() {
-  if [ "$use_external_menu" = "false" ] || [ -z "$use_external_menu" ]; then
-    [ -z "$4" ] && printf "\33[2K\r\033[1;34m%s\n\033[0m" "$1" && return
-    [ -n "$4" ] && printf "\33[2K\r\033[1;34m%s - %s\n\033[0m" "$1" "$4" && return
-  fi
-  [ -z "$2" ] && timeout=3000 || timeout="$2" # default timeout is 3 seconds
-  if [ "$notify" = "true" ]; then
-    [ -z "$3" ] && notify-send "$1" "$4" -t "$timeout" -h string:x-dunst-stack-tag:vol # the -h string:x-dunst-stack-tag:vol is used for overriding previous notifications
-    [ -n "$3" ] && notify-send "$1" "$4" -t "$timeout" -i "$3" -h string:x-dunst-stack-tag:vol
-  fi
-}
+
 
 #=============================================================================
 # ACTION SELECTION
@@ -303,42 +304,37 @@ select_format() {
 #=============================================================================
 
 perform_action() {
-  local video_url="$1"
-  local video_title="$2"
-  local img_path="$3"
-
   # Get format if format selection is enabled
-
-  if [[ "$download_mode" == false ]]; then
+  [ "$download_mode" == false ] && {
     local selection
-    if ! selection="$(select_action)"; then
-      echo "Action selection cancelled" >&2
+    selection="$(select_action)" || {
+      send_notification "Error" "Action selection cancelled"
       return 1
-    fi
+    }
     download_mode="$selection"
-  fi
+  }
 
   local format_code=""
   if [[ "$format_selection" = true ]]; then
     if ! format_code=$(select_format "$video_url"); then
-      echo "Format selection cancelled." >&2
+      send_notification "Format selection cancelled."
       return 1
     fi
   fi
 
-  echo "▶ Performing action on: $video_title"
-
   if [[ "$download_mode" = true ]]; then
-    if "$notify"; then
-      notify-send -t 5000 -i "$img_path" "Ytsurf" "Downloading to $video_title" || true
-    fi
+    send_notification "Ytsurf" "Downloading to $selected_title" "$img_path"
     download_video "$video_url" "$format_code"
   else
-    if "$notify"; then
-      notify-send -t 5000 -i "$img_path" "Ytsurf" "Playing $video_title" || true
-    fi
+    send_notification "Ytsurf" "Playing $selected_title" "$img_path"
     play_video "$video_url" "$format_code"
   fi
+
+  [ "$history_mode" == "true" ] && STATE="HISTORY"
+  [ "$history_mode" == "true" ] || {
+    STATE="SEARCH"
+    query=""
+  }
 }
 
 download_video() {
@@ -346,7 +342,7 @@ download_video() {
   local format_code="$2"
 
   mkdir -p "$download_dir"
-  echo "Downloading to $download_dir..."
+  send_notification "Ytsurf" "Downloading to $download_dir..."
 
   local yt_dlp_args=(
     -o "$download_dir/%(title)s [%(id)s].%(ext)s"
@@ -433,15 +429,15 @@ add_to_history() {
   mv "$tmp_history" "$HISTORY_FILE"
 }
 
-handle_history_mode() {
-  if [[ ! -z "$HISTORY_FILE" ]]; then
-    echo "No viewing history found."
-    exit 0
-  fi
+handle_history() {
+  [  -z "$HISTORY_FILE" ] && {
+    send_notification "Error" "No viewing history found."
+    exit 1
+  }
 
   local json_data
   if ! json_data=$(cat "$HISTORY_FILE" 2>/dev/null); then
-    echo "Error: Could not read history file." >&2
+    send_notification "Error" "Could not read history file." >&2
     exit 1
   fi
 
@@ -452,18 +448,17 @@ handle_history_mode() {
   mapfile -t history_titles < <(echo "$json_data" | jq -r '.[].title' 2>/dev/null)
 
   if [[ ${#history_titles[@]} -eq 0 ]]; then
-    echo "History is empty or corrupted."
-    exit 0
+    send_notification "Error" "History is empty or corrupted."
+    exit 1
   fi
 
   # Select from history
-  local selected_title
   selected_title=$(select_from_menu "${history_titles[@]}" "Watch history:" "$json_data" true)
 
-  if [[ -z "$selected_title" ]]; then
-    echo "No selection made."
+   [ -z "$selected_title" ] && {
+    send_notification "Error" "No selection made."
     exit 1
-  fi
+   }
 
   # Find selected video
   local selected_index=-1
@@ -480,11 +475,11 @@ handle_history_mode() {
   fi
 
   # Extract video details
-  local video_id video_url
+  local video_id
   video_id="${history_ids[$selected_index]}"
   video_url="https://www.youtube.com/watch?v=$video_id"
 
-  local video_duration video_author video_views video_published video_thumbnail img_path
+  local video_duration video_author video_views video_published video_thumbnail
   video_duration=$(echo "$json_data" | jq -r ".[$selected_index].duration")
   video_author=$(echo "$json_data" | jq -r ".[$selected_index].author")
   video_views=$(echo "$json_data" | jq -r ".[$selected_index].views")
@@ -495,7 +490,7 @@ handle_history_mode() {
 
   # Update history and perform action
   add_to_history "$video_id" "$selected_title" "$video_duration" "$video_author" "$video_views" "$video_published" "$video_thumbnail"
-  perform_action "$video_url" "$selected_title" "$img_path"
+  STATE="PLAY"
 }
 
 #=============================================================================
@@ -656,7 +651,8 @@ select_from_menu() {
     selected_item=$(create_preview_script_rofi | rofi -dmenu -show-icons)
   elif [[ "$use_sentaku" == true ]] && command -v sentaku &>/dev/null; then
     selected_item=$(printf "%s\n" "${menu_items[@]}" | sed 's/ /␣/g' | sentaku)
-    selected_item=$(sed 's/␣/ /g' <<<"$selected_item")
+    selected_item=${selected_item//␣/ }
+
   elif command -v fzf &>/dev/null; then
     local preview_script
     preview_script=$(create_preview_script_fzf "$is_history")
@@ -664,58 +660,51 @@ select_from_menu() {
     selected_item=$(printf "%s\n" "${menu_items[@]}" | fzf \
       --prompt="$prompt" \
       --preview="bash -c '$preview_script' -- {n}")
-  else
-    echo "Error: Neither fzf nor rofi is available for the interactive menu." >&2
-    return 1
   fi
-
   echo "$selected_item"
 }
 
 handle_search() {
   get_search_query
 
-  local json_data
-  if ! json_data=$(fetch_search_results "$query"); then
-    echo "Failed to fetch search results for '$query'"
+  json_data=$(fetch_search_results "$query") || {
+    send_notification "Error" "Failed to fetch search results for '$query'"
     exit 1
-  fi
+  }
 
   # Build menu list
   local menu_list=()
   mapfile -t menu_list < <(echo "$json_data" | jq -r '.[].title' 2>/dev/null)
 
-  if [[ ${#menu_list[@]} -eq 0 ]]; then
-    echo "No results found for '$query'"
+  [ ${#menu_list[@]} -eq 0 ] && {
+    send_notification "Error" "No results found for '$query'"
     exit 0
-  fi
+  }
 
   # Select video
-  local selected_title
   selected_title=$(select_from_menu "${menu_list[@]}" "Search YouTube:" "$json_data" false)
-  echo "$selected_title"
 
-  if [[ -z "$selected_title" ]]; then
-    echo "No selection made."
+  [ -n "$selected_title" ] || {
+    send_notification "Error" "No selection made."
     exit 1
-  fi
+  }
 
   # Find selected video index
   local selected_index=-1
   for i in "${!menu_list[@]}"; do
-    if [[ "${menu_list[$i]}" == "$selected_title" ]]; then
+    [ "${menu_list[$i]}" == "$selected_title" ] && {
       selected_index=$i
       break
-    fi
+    }
   done
 
-  if [[ $selected_index -lt 0 ]]; then
-    echo "Error: Could not resolve selected video." >&2
+  [ "$selected_index" -lt 0 ] && {
+    send_notification "Error" " Could not resolve selected video."
     exit 1
-  fi
+  }
 
   # Extract video details
-  local video_id video_url video_author video_duration video_views video_published video_thumbnail img_path
+  local video_id video_author video_duration video_views video_published video_thumbnail
   video_id=$(echo "$json_data" | jq -r ".[$selected_index].id")
   video_url="https://www.youtube.com/watch?v=$video_id"
   video_author=$(echo "$json_data" | jq -r ".[$selected_index].author")
@@ -727,17 +716,18 @@ handle_search() {
   img_path="$TMPDIR/thumb_$video_id.jpg"
   # Add to history and perform action
   add_to_history "$video_id" "$selected_title" "$video_duration" "$video_author" "$video_views" "$video_published" "$video_thumbnail"
-  perform_action "$video_url" "$selected_title" "$img_path"
+  STATE="PLAY"
 }
 
 # MAIN EXECUTION
 main() {
-  STATE="SEARCH"
+  [ "$history_mode" == "true" ] && STATE="HISTORY" 
+  [ "$history_mode" == "true" ] || STATE="SEARCH"
   while :; do
     case "$STATE" in
-    SEARCH) handle_search_mode ;;
-    PLAY) choose_media ;;
-    HISTORY) handle_history_mode ;;
+    SEARCH) handle_search ;;
+    PLAY) perform_action ;;
+    HISTORY) handle_history ;;
     EXIT) break ;;
     *) break ;;
     esac
@@ -745,7 +735,7 @@ main() {
 }
 
 # Run main function with all arguments
-configuration 
+configuration
 setup_cleanup
 check_dependencies
 parse_arguments "$@"
