@@ -146,7 +146,7 @@ check_dependencies() {
 
   # Thumbnail dependency (optional but recommended)
   if ! command -v "chafa" &>/dev/null; then
-    send_notification "Warning" "chafa not found - thumbnails will not be displayed" 
+    send_notification "Warning" "chafa not found - thumbnails will not be displayed"
   fi
 
   if [[ ${#missing_deps[@]} -ne 0 ]]; then
