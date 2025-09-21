@@ -2,17 +2,6 @@
 set -euo pipefail
 
 #=============================================================================
-# ytsurf - search, stream, or download YouTube videos from your terminal 🎵📺
-# Version: 1.9.5
-#=============================================================================
-
-# Exit if not running in bash
-if [[ -z "$BASH_VERSION" ]]; then
-  echo "This script requires Bash." >&2
-  exit 1
-fi
-
-#=============================================================================
 # CONSTANTS AND DEFAULTS
 #=============================================================================
 
@@ -52,7 +41,6 @@ download_dir="${XDG_DOWNLOAD_DIR:-$HOME/Downloads}"
 max_history_entries="$DEFAULT_MAX_HISTORY_ENTRIES"
 notify="$DEFAULT_NOTIFY"
 
-command -v notify-send >/dev/null 2>&1 && notify="true" || notify="false" # check if notify-send is installed
 
 
 # Runtime variables
@@ -63,6 +51,7 @@ TMPDIR=""
 # UTILITY FUNCTIONS
 #=============================================================================
 
+command -v notify-send >/dev/null 2>&1 && notify="true" || notify="false" # check if notify-send is installed
 # Send notications
 send_notification() {
   if [ "$use_rofi" = false ] && [ "$use_sentaku" = false ]; then
@@ -586,7 +575,7 @@ if [[ -n "$id" && "$id" != "null" ]]; then
 EOF
 
   if [[ "$is_history" = true ]]; then
-    printf 'echo -e "\033[1;35mFrom History\033[0m"'
+    printf 'echo -e "\033[1;35mFrom History\033[0m" \n'
   fi
 
   cat <<'EOF'
