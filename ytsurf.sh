@@ -132,6 +132,7 @@ check_dependencies() {
 
   local required_deps=("yt-dlp" "mpv" "jq" "curl")
   [ "$player" == "syncplay" ] && required_deps+=("syncplay")
+
   for dep in "${required_deps[@]}"; do
     if ! command -v "$dep" &>/dev/null; then
       missing_deps+=("$dep")
@@ -145,12 +146,11 @@ check_dependencies() {
 
   # Thumbnail dependency (optional but recommended)
   if ! command -v "chafa" &>/dev/null; then
-    echo "Warning: chafa not found - thumbnails will not be displayed" >&2
+    send_notification "Warning" "chafa not found - thumbnails will not be displayed" 
   fi
 
   if [[ ${#missing_deps[@]} -ne 0 ]]; then
-    "Error: Missing required dependencies: ${missing_deps[*]}" >&2
-    echo "Please install the missing packages and try again." >&2
+    send_notification "Error" "Missing required dependencies: ${missing_deps[*]}"
     exit 1
   fi
 }
@@ -378,11 +378,11 @@ play_video() {
     "$player" "${mpv_args[@]}" "$video_url"
     ;;
   syncplay)
-     [ "$audio_only" == "true" ] && {
-       send_notification "Error" "no support for audio only for syncplay for now"
-       exit 1
-     }
-     "$player" "$video_url"
+    [ "$audio_only" == "true" ] && {
+      send_notification "Error" "no support for audio only for syncplay for now"
+      exit 1
+    }
+    "$player" "$video_url"
     ;;
   esac
 }
