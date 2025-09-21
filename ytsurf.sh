@@ -40,8 +40,8 @@ format_selection="$DEFAULT_FORMAT_SELECTION"
 download_dir="${XDG_DOWNLOAD_DIR:-$HOME/Downloads}"
 max_history_entries="$DEFAULT_MAX_HISTORY_ENTRIES"
 notify="$DEFAULT_NOTIFY"
-
-
+editor="nvim"
+player="mpv"
 
 # Runtime variables
 query=""
@@ -78,8 +78,10 @@ OPTIONS:
   --download      Download instead of playing
   --format        Interactively choose format/resolution
   --rofi          Use rofi instead of fzf for menus
+  --sentaku       Use sentaku instead of fzf or rofi(for system that can't compile go)
   --history       Show and replay from viewing history
   --limit <N>     Limit number of search results (default: $DEFAULT_LIMIT)
+  --edit, -e      edit the configuration file
   --help, -h      Show this help message
   --version       Show version info
 
@@ -102,10 +104,16 @@ print_version() {
   echo "$SCRIPT_NAME v$SCRIPT_VERSION"
 }
 
+edit_config() {
+  command -v "$editor" >/dev/null 2>&1 || editor="nano"
+  "$editor" "$CONFIG_FILE"
+  exit 0
+}
+
 # configuration
 configuration() {
   mkdir -p "$CACHE_DIR" "$CONFIG_DIR"
-  [ -f "$HISTORY_FILE" ] || echo "[]" > "$HISTORY_FILE"
+  [ -f "$HISTORY_FILE" ] || echo "[]" >"$HISTORY_FILE"
   # shellcheck source=/home/stan/.config/ytsurf/config
   [ -f "$CONFIG_FILE" ] || source "$CONFIG_FILE"
 }
@@ -121,7 +129,9 @@ check_dependencies() {
   local missing_deps=()
 
   # Required dependencies
+
   local required_deps=("yt-dlp" "mpv" "jq" "curl")
+  [ "$player" == "syncplay" ] && required_deps+=("syncplay")
   for dep in "${required_deps[@]}"; do
     if ! command -v "$dep" &>/dev/null; then
       missing_deps+=("$dep")
@@ -178,6 +188,10 @@ parse_arguments() {
       download_mode=true
       shift
       ;;
+    --syncplay)
+      player="syncplay"
+      shift
+      ;;
     --format)
       format_selection=true
       shift
@@ -192,6 +206,9 @@ parse_arguments() {
         exit 1
       fi
       ;;
+    --edit | -e)
+      edit_config
+      ;;
     *)
       query="$*"
       break
@@ -199,8 +216,6 @@ parse_arguments() {
     esac
   done
 }
-
-
 
 #=============================================================================
 # ACTION SELECTION
@@ -355,17 +370,21 @@ play_video() {
   local video_url="$1"
   local format_code="$2"
 
-  local mpv_args=(--really-quiet)
-
-  if [[ "$audio_only" = true ]]; then
-    mpv_args+=(--no-video)
-  fi
-
-  if [[ -n "$format_code" ]]; then
-    mpv_args+=(--ytdl-format="$format_code")
-  fi
-
-  mpv "${mpv_args[@]}" "$video_url"
+  case "$player" in
+  mpv)
+    local mpv_args=(--really-quiet)
+    [ "$audio_only" == "true" ] && mpv_args+=(--no-video)
+    [ -n "$format_code" ] && mpv_args+=(--ytdl-format="$format_code")
+    "$player" "${mpv_args[@]}" "$video_url"
+    ;;
+  syncplay)
+     [ "$audio_only" == "true" ] && {
+       send_notification "Error" "no support for audio only for syncplay for now"
+       exit 1
+     }
+     "$player" "$video_url"
+    ;;
+  esac
 }
 
 #=============================================================================
@@ -420,7 +439,7 @@ add_to_history() {
 }
 
 handle_history() {
-  [  -z "$HISTORY_FILE" ] && {
+  [ -z "$HISTORY_FILE" ] && {
     send_notification "Error" "No viewing history found."
     exit 1
   }
@@ -445,10 +464,10 @@ handle_history() {
   # Select from history
   selected_title=$(select_from_menu "${history_titles[@]}" "Watch history:" "$json_data" true)
 
-   [ -z "$selected_title" ] && {
+  [ -z "$selected_title" ] && {
     send_notification "Error" "No selection made."
     exit 1
-   }
+  }
 
   # Find selected video
   local selected_index=-1
@@ -711,7 +730,7 @@ handle_search() {
 
 # MAIN EXECUTION
 main() {
-  [ "$history_mode" == "true" ] && STATE="HISTORY" 
+  [ "$history_mode" == "true" ] && STATE="HISTORY"
   [ "$history_mode" == "true" ] || STATE="SEARCH"
   while :; do
     case "$STATE" in
