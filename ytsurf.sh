@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-set -euo pipefail
 
+set -u
 #=============================================================================
 # CONSTANTS AND DEFAULTS
 #=============================================================================
@@ -99,6 +99,24 @@ EXAMPLES:
 EOF
 }
 
+update_script() {
+  which_ytsurf="$(command -v ytsurf)"
+  [ -z "$which_ytsurf" ] && send_notification "Can't find lobster in PATH"
+  [ -z "$which_ytsurf" ] && exit 1
+  update=$(curl -s "https://raw.githubusercontent.com/Stan-breaks/ytsurf/main/ytsurf.sh" || exit 1)
+  update="$(printf '%s\n' "$update" | diff -u "$which_ytsurf" -)"
+  if [ -z "$update" ]; then
+    send_notification "Script is up to date :)"
+  else
+    if printf '%s\n' "$update" | patch "$which_ytsurf" -; then
+      send_notification "Script has been updated!"
+    else
+      send_notification "Can't update for some reason! update with Paru or yay if on archlinux"
+    fi
+  fi
+  exit 0
+}
+
 # Print version information
 print_version() {
   echo "$SCRIPT_NAME v$SCRIPT_VERSION"
@@ -184,7 +202,7 @@ parse_arguments() {
       history_mode=true
       shift
       ;;
-    --download)
+    --download | -d)
       download_mode=true
       shift
       ;;
@@ -192,11 +210,11 @@ parse_arguments() {
       player="syncplay"
       shift
       ;;
-    --format)
+    --format | -f)
       format_selection=true
       shift
       ;;
-    --limit)
+    --limit | -l)
       shift
       if [[ -n "${1:-}" && "$1" =~ ^[0-9]+$ ]]; then
         limit="$1"
@@ -208,6 +226,9 @@ parse_arguments() {
       ;;
     --edit | -e)
       edit_config
+      ;;
+    --update | -u)
+      update_script
       ;;
     *)
       query="$*"
