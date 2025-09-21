@@ -106,6 +106,7 @@ print_version() {
 configuration() {
   mkdir -p "$CACHE_DIR" "$CONFIG_DIR"
   [ -f "$HISTORY_FILE" ] || echo "[]" > "$HISTORY_FILE"
+  # shellcheck source=/home/stan/.config/ytsurf/config
   [ -f "$CONFIG_FILE" ] || source "$CONFIG_FILE"
 }
 
