@@ -404,6 +404,7 @@ play_video() {
       exit 1
     }
     "$player" "$video_url"
+    exit 0
     ;;
   esac
 }
