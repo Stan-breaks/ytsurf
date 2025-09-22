@@ -65,6 +65,40 @@ send_notification() {
   fi
 }
 
+create_desktop_entries() {
+  local json_data="$1"
+
+  mkdir -p "$TMPDIR/applications"
+
+  # Loop through results
+  echo "$json_data" | jq -c '.[]' | while read -r item; do
+    local title id thumbnail img_path desktop_file
+    if ! jq -e . >/dev/null 2>&1 <<<"$item"; then
+      echo "Skipping invalid JSON item" >&2
+      break
+    fi
+    # Check if required fields exist and aren't null
+    title=$(jq -r '.title' <<<"$item")
+    id=$(jq -r '.id' <<<"$item")
+    thumbnail=$(jq -r '.thumbnail' <<<"$item")
+
+    image_path="$TMPDIR/thumb_$id.jpg"
+    desktop_file="$TMPDIR/applications/ytsurf-$id.desktop"
+
+    # Fetch thumbnail if missing
+    [[ ! -f "$image_path" ]] && curl -fsSL "$thumbnail" -o "$image_path" 2>/dev/null
+
+    cat >"$desktop_file" <<EOF
+[Desktop Entry]
+Name=$title
+Exec=echo $id
+Icon=$image_path
+Type=Application
+Categories=ytsurf;
+EOF
+  done
+}
+
 # Print help message
 print_help() {
   cat <<EOF
@@ -643,21 +677,9 @@ fi
 EOF
 }
 
-create_preview_script_rofi() {
-  local menu=""
-
-  while read -r item; do
-    title=$(jq -r '.title' <<<"$item")
-    id=$(jq -r '.id' <<<"$item")
-    thumbnail=$(jq -r '.thumbnail' <<<"$item")
-    img_path="$TMPDIR/thumb_$id.jpg"
-
-    [[ ! -f "$img_path" ]] && curl -fsSL "$thumbnail" -o "$img_path" 2>/dev/null
-
-    menu+="$title\0icon\x1fthumbnail://$img_path\n"
-  done < <(jq -c ".[:$limit][]" <<<"$json_data")
-
-  printf "%b" "$menu"
+select_with_rofi_drun() {
+  rofi_out=$(rofi -show drun -drun-categories ytsurf -filter "" -show-icons)
+  echo "$rofi_out"
 }
 
 select_from_menu() {
@@ -678,9 +700,7 @@ select_from_menu() {
   export json_data TMPDIR
 
   local selected_item=""
-  if [[ "$use_rofi" = true ]] && command -v rofi &>/dev/null; then
-    selected_item=$(create_preview_script_rofi | rofi -dmenu -show-icons)
-  elif [[ "$use_sentaku" == true ]] && command -v sentaku &>/dev/null; then
+  if [[ "$use_sentaku" == true ]] && command -v sentaku &>/dev/null; then
     selected_item=$(printf "%s\n" "${menu_items[@]}" | sed 's/ /␣/g' | sentaku)
     selected_item=${selected_item//␣/ }
 
@@ -713,7 +733,16 @@ handle_search() {
   }
 
   # Select video
-  selected_title=$(select_from_menu "${menu_list[@]}" "Search YouTube:" "$json_data" false)
+
+  if [[ "$use_rofi" == true ]]; then
+    create_desktop_entries "$json_data"
+    selected_id=$(select_with_rofi_drun)
+
+    selected_index=$(echo "$json_data" | jq -r --arg id "$selected_id" 'map(.id) | index($id)')
+    selected_title=$(echo "$json_data" | jq -r ".[$selected_index].title")
+  else
+    selected_title=$(select_from_menu "${menu_list[@]}" "Search YouTube:" "$json_data" false)
+  fi
 
   [ -n "$selected_title" ] || {
     send_notification "Error" "No selection made."
