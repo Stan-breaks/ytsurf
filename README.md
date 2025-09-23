@@ -50,33 +50,34 @@ Install on Arch Linux:
 ## Usage
 
 ```bash
-# Basic search
-ytsurf lofi hip hop study
+USAGE:
+  $SCRIPT_NAME [OPTIONS] [QUERY]
 
-# Search with 25 results instead of the default 10
-ytsurf --limit 25 dnb mix
+OPTIONS:
+  --audio         Play/download audio-only version
+  --download      Download instead of playing
+  --format        Interactively choose format/resolution
+  --rofi          Use rofi instead of fzf for menus
+  --sentaku       Use sentaku instead of fzf or rofi(for system that can't compile go)
+  --history       Show and replay from viewing history
+  --limit <N>     Limit number of search results (default: $DEFAULT_LIMIT)
+  --edit, -e      edit the configuration file
+  --help, -h      Show this help message
+  --version       Show version info
 
-# Audio-only playback
-ytsurf --audio npr tiny desk
+CONFIG:
+  $CONFIG_FILE can contain default options like:
+    limit=5
+    audio_only=true
+    use_rofi=true
 
-# Download the selected video
-ytsurf --download how to make ramen
-
-# Select a specific video format before playback/download
-ytsurf --format space video
-
-# View watch history
-ytsurf --history
-
-#use rofi instead of fzf
-ytsurf --rofi
-
-#use sentaku instead of fzf or rofi(for RISC-V)
-ytsurf --sentaku
-
-# interactive use
-ytsurf
-
+EXAMPLES:
+  $SCRIPT_NAME lo-fi study mix
+  $SCRIPT_NAME --audio orchestral soundtrack
+  $SCRIPT_NAME --download --format jazz piano
+  $SCRIPT_NAME --history
+EOF
+}
 ```
 
 You can also run `ytsurf` without arguments to enter interactive search mode. All flags can be combined.
