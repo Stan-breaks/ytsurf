@@ -5,7 +5,7 @@ set -u
 # CONSTANTS AND DEFAULTS
 #=============================================================================
 
-readonly SCRIPT_VERSION="1.9.5"
+readonly SCRIPT_VERSION="2.0.0"
 readonly SCRIPT_NAME="ytsurf"
 
 # Default configuration values
