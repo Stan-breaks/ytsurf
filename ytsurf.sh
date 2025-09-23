@@ -101,9 +101,6 @@ Categories=ytsurf;
 
 EOF
   done
-
-ls -la "$applications"
-ls -la "$TMPDIR/applications/"
 }
 
 # Print help message
