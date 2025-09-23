@@ -171,7 +171,25 @@ configuration() {
   mkdir -p "$CACHE_DIR" "$CONFIG_DIR"
   [ -f "$HISTORY_FILE" ] || echo "[]" >"$HISTORY_FILE"
   # shellcheck source=/home/stan/.config/ytsurf/config
-  [ -f "$CONFIG_FILE" ] || source "$CONFIG_FILE"
+
+  if [ ! -f "$CONFIG_FILE" ]; then
+    cat >"$CONFIG_FILE" <<'EOF'
+#limit=10
+#audio_only=false
+#use_rofi=false
+#use_sentaku=false
+#download_mode=false
+#history_mode=false
+#format_selection=false
+#download_dir="$HOME/Downloads"
+#max_history_entries=20
+#notify=true
+#editor="nvim"
+#player="mpv"
+EOF
+  fi
+# shellcheck disable=SC1090
+  [ -f "$CONFIG_FILE" ] && source "$CONFIG_FILE"
 }
 
 # Setup cleanup trap
