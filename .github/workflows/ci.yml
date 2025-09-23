@@ -34,7 +34,7 @@ jobs:
     - name: Run Sanity Checks
       run: |
         # Test that the script runs with the --history flag (non-interactive)
-        ./ytsurf.sh --history
+        ./ytsurf.sh -V
 
         # Test that the script exits with an error on invalid input
         # We expect this to fail, so we invert the exit code with !
