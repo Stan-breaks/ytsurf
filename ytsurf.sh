@@ -42,6 +42,7 @@ max_history_entries="$DEFAULT_MAX_HISTORY_ENTRIES"
 notify="$DEFAULT_NOTIFY"
 editor="nvim"
 player="mpv"
+applications="$HOME/.local/share/applications/ytsurf/"
 
 # Runtime variables
 query=""
@@ -69,6 +70,8 @@ create_desktop_entries() {
   local json_data="$1"
 
   mkdir -p "$TMPDIR/applications"
+  mkdir -p "$applications"
+  [ ! -L "$applications" ] && ln -sf "$TMPDIR/applications/" "$applications"
 
   # Loop through results
   echo "$json_data" | jq -c '.[]' | while read -r item; do
@@ -95,8 +98,12 @@ Exec=echo $id
 Icon=$image_path
 Type=Application
 Categories=ytsurf;
+
 EOF
   done
+
+ls -la "$applications"
+ls -la "$TMPDIR/applications/"
 }
 
 # Print help message
