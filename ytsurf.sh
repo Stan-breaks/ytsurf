@@ -741,6 +741,7 @@ handle_search() {
   if [[ "$use_rofi" == true ]]; then
     create_desktop_entries "$json_data"
     selected_id=$(select_with_rofi_drun)
+    rm -rf "$TMPDIR/applications"
 
     selected_index=$(echo "$json_data" | jq -r --arg id "$selected_id" 'map(.id) | index($id)')
     selected_title=$(echo "$json_data" | jq -r ".[$selected_index].title")
