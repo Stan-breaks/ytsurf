@@ -6,33 +6,33 @@ A lightweight terminal tool to **search, stream, and download YouTube videos** w
   <img width="720" alt="demo" src="https://github.com/user-attachments/assets/0771f53b-ad16-41a2-9938-9aaaf0eaa1ae" />
 </p>
 
----
+
 
 ## ✨ Features
 
 * 🔍 Search YouTube directly from your terminal
-* 🎬 Play instantly with `mpv` (or `syncplay`)
+* 🎬 Play instantly with `mpv`
+* 👥 **Syncplay support** – watch videos together with friends in sync (instead of solo playback in `mpv`)
 * 🎧 Audio-only playback & downloads
-* 📥 Download videos or audio with format selection
-* 🎨 Interactive menus with `fzf` (thumbnail previews via `chafa`) or `rofi` / `sentaku`
+* 📥 Download videos or audio
+* 🎚 **Interactive format/quality selection** – choose resolution or audio format when playing *or* downloading
+* 🎨 Interactive menus with `fzf` (thumbnail previews via `chafa`), `rofi`, or `sentaku`
 * ⚙️ External config file for default options
 * 📜 10-minute search result caching
 * 🕘 Playback history and re-run support
 * 🔢 Adjustable search result limit
 * 📂 Custom download directory
-* ⬆️ One-command self-update (`--update`)
-
----
+* ⬆️ Self-update (`--update`) **for manual installations only**
 
 
-| Selector          | Requirements             | Features                                        | Best For                          |
-| ----------------- | ------------------------ | ----------------------------------------------- | --------------------------------- |
-| **fzf** (default) | `fzf`, `chafa`, `ffmpeg` | Terminal-based, thumbnail previews, lightweight | Most users (fast + previews)      |
-| **rofi**          | `rofi`                   | GUI menu, keyboard-driven, clean look           | Users who prefer a graphical menu |
-| **sentaku**       | `bash` only              | Very minimal, no previews                       | Systems without Go/`fzf` support  |
+
+| Selector          | Features                                        | Best For                          |
+| ----------------- |  ----------------------------------------------- | --------------------------------- |
+| **fzf** (default) |Terminal-based, thumbnail previews, lightweight | Most users (fast + previews)      |
+| **rofi**          | GUI menu, keyboard-driven, clean look           | Users who prefer a graphical menu |
+| **sentaku**       | Very minimal, no previews                       | Systems without Go/`fzf` support  |
 
 
----
 
 ## 📦 Installation
 
@@ -54,7 +54,6 @@ chmod +x ~/.local/bin/ytsurf
 
 Make sure `~/.local/bin` is in your **PATH**.
 
----
 
 ## 🔧 Dependencies
 
@@ -67,7 +66,6 @@ Arch Linux install:
 sudo pacman -S yt-dlp jq curl mpv fzf chafa rofi ffmpeg
 ```
 
----
 
 ## 🚀 Usage
 
@@ -98,7 +96,6 @@ EXAMPLES:
 
 Run `ytsurf` without arguments to enter interactive mode.
 
----
 
 ## ⚙️ Configuration
 
@@ -120,20 +117,17 @@ audio_only=true
 download_dir="$HOME/Videos/YouTube"
 ```
 
----
 
 ## 🤝 Contributing
 
 Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md).
 Check out [FUTURE_FEATURES.md](FUTURE_FEATURES.md) for upcoming ideas.
 
----
 
 ## 📜 License
 
 Released under the [GNU General Public License v3.0](LICENSE).
 
----
 
 ## ⭐ Star History
 
@@ -144,6 +138,4 @@ Released under the [GNU General Public License v3.0](LICENSE).
    <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=Stan-breaks/ytsurf&type=Date" />
  </picture>
 </a>  
-
----
 
