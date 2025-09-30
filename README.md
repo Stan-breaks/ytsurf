@@ -1,25 +1,40 @@
 # ytsurf
 
-A simple shell script to search YouTube videos from your terminal and play them with mpv or download them.
+A lightweight terminal tool to **search, stream, and download YouTube videos** with `mpv`, `yt-dlp`, and a fuzzy finder.
 
-## Demo
-<img width="1366" height="768" alt="250814_13h56m36s_screenshot" src="https://github.com/user-attachments/assets/0771f53b-ad16-41a2-9938-9aaaf0eaa1ae" />
+<p align="center">
+  <img width="720" alt="demo" src="https://github.com/user-attachments/assets/0771f53b-ad16-41a2-9938-9aaaf0eaa1ae" />
+</p>
+
+---
+
+## ✨ Features
+
+* 🔍 Search YouTube directly from your terminal
+* 🎬 Play instantly with `mpv` (or `syncplay`)
+* 🎧 Audio-only playback & downloads
+* 📥 Download videos or audio with format selection
+* 🎨 Interactive menus with `fzf` (thumbnail previews via `chafa`) or `rofi` / `sentaku`
+* ⚙️ External config file for default options
+* 📜 10-minute search result caching
+* 🕘 Playback history and re-run support
+* 🔢 Adjustable search result limit
+* 📂 Custom download directory
+* ⬆️ One-command self-update (`--update`)
+
+---
 
 
-## Features
+| Selector          | Requirements             | Features                                        | Best For                          |
+| ----------------- | ------------------------ | ----------------------------------------------- | --------------------------------- |
+| **fzf** (default) | `fzf`, `chafa`, `ffmpeg` | Terminal-based, thumbnail previews, lightweight | Most users (fast + previews)      |
+| **rofi**          | `rofi`                   | GUI menu, keyboard-driven, clean look           | Users who prefer a graphical menu |
+| **sentaku**       | `bash` only              | Very minimal, no previews                       | Systems without Go/`fzf` support  |
 
-- Search YouTube from your terminal
-- Interactive selection with `fzf` (thumbnail previews) or `rofi`
-- Download videos or audio
-- Select video format/quality
-- External config file for default options
-- 10-minute result caching
-- Playback history
-- Audio-only mode
-- Channel search
-- limit search results
 
-## Installation
+---
+
+## 📦 Installation
 
 ### Arch Linux (AUR)
 
@@ -37,78 +52,90 @@ curl -o ~/.local/bin/ytsurf https://raw.githubusercontent.com/Stan-breaks/ytsurf
 chmod +x ~/.local/bin/ytsurf
 ```
 
-Add `~/.local/bin` to your PATH if it's not already there.
+Make sure `~/.local/bin` is in your **PATH**.
 
-## Dependencies
+---
 
-- **Required:** `bash`, `yt-dlp`, `jq`, `curl`, `mpv`, `fzf`, `chafa`,`ffmpeg` (for fzf thumbnails)
-- **Optional:** `rofi`
+## 🔧 Dependencies
 
-Install on Arch Linux:
-`sudo pacman -S yt-dlp jq curl mpv fzf chafa rofi ffmpeg`
+* **Required:** `bash`, `yt-dlp`, `jq`, `curl`, `mpv`, `fzf`, `chafa`, `ffmpeg`
+* **Optional:** `rofi`, `sentaku`, `syncplay`
 
-## Usage
+Arch Linux install:
+
+```bash
+sudo pacman -S yt-dlp jq curl mpv fzf chafa rofi ffmpeg
+```
+
+---
+
+## 🚀 Usage
 
 ```bash
 USAGE:
-  $SCRIPT_NAME [OPTIONS] [QUERY]
+  ytsurf [OPTIONS] [QUERY]
 
 OPTIONS:
-  --audio         Play/download audio-only version
-  --download      Download instead of playing
-  --format        Interactively choose format/resolution
-  --rofi          Use rofi instead of fzf for menus
-  --sentaku       Use sentaku instead of fzf or rofi(for system that can't compile go)
-  --history       Show and replay from viewing history
-  --limit <N>     Limit number of search results (default: $DEFAULT_LIMIT)
-  --edit, -e      edit the configuration file
-  --help, -h      Show this help message
-  --version       Show version info
-
-CONFIG:
-  $CONFIG_FILE can contain default options like:
-    limit=5
-    audio_only=true
-    use_rofi=true
+  -h, --help        Show help message
+  -V, --version     Show version info
+  --rofi            Use rofi for menus instead of fzf
+  --sentaku         Use sentaku instead of fzf/rofi (for systems without Go)
+  --audio           Play/download audio-only version
+  --download, -d    Download instead of playing
+  --syncplay        Use syncplay instead of mpv
+  --format, -f      Interactively choose format/resolution
+  --history         Show and replay from viewing history
+  --limit, -l <N>   Limit number of search results (default: from config)
+  --edit, -e        Edit the configuration file
+  --update, -u      Update the script to the latest version
 
 EXAMPLES:
-  $SCRIPT_NAME lo-fi study mix
-  $SCRIPT_NAME --audio orchestral soundtrack
-  $SCRIPT_NAME --download --format jazz piano
-  $SCRIPT_NAME --history
-EOF
-}
+  ytsurf lo-fi study mix
+  ytsurf --audio orchestral soundtrack
+  ytsurf --download --format jazz piano
+  ytsurf --history
 ```
 
-You can also run `ytsurf` without arguments to enter interactive search mode. All flags can be combined.
+Run `ytsurf` without arguments to enter interactive mode.
 
-## Configuration
+---
 
-You can set default options by creating a config file at `~/.config/ytsurf/config`. Command-line flags will always override the config file.
+## ⚙️ Configuration
 
-**Example Config:**
+Defaults can be set in `~/.config/ytsurf/config`.
+CLI flags always override config values.
+
+**Example config:**
+
 ```bash
 # ~/.config/ytsurf/config
 
 # Set a higher default search limit
 limit=25
 
-# Always use audio-only mode by default
+# Always use audio-only mode
 audio_only=true
 
 # Set a custom download directory
 download_dir="$HOME/Videos/YouTube"
 ```
 
-## Contributing
+---
 
-Contributions are welcome! Please read the [Contributing Guidelines](CONTRIBUTING.md) to get started. You can also check out the [Future Features](FUTURE_FEATURES.md) list for ideas.
+## 🤝 Contributing
 
-## License
+Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md).
+Check out [FUTURE_FEATURES.md](FUTURE_FEATURES.md) for upcoming ideas.
 
-This script is released under the [GNU General Public License v3.0](LICENSE).
+---
 
-## Star History
+## 📜 License
+
+Released under the [GNU General Public License v3.0](LICENSE).
+
+---
+
+## ⭐ Star History
 
 <a href="https://www.star-history.com/#Stan-breaks/ytsurf&Date">
  <picture>
@@ -116,4 +143,7 @@ This script is released under the [GNU General Public License v3.0](LICENSE).
    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=Stan-breaks/ytsurf&type=Date" />
    <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=Stan-breaks/ytsurf&type=Date" />
  </picture>
-</a>
+</a>  
+
+---
+
