@@ -240,6 +240,7 @@ parse_arguments() {
       exit 0
       ;;
     --version | -V)
+      send_notification "Ytsurf" "$SCRIPT_VERSION"
       exit 0
       ;;
     --rofi)
