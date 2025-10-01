@@ -12,7 +12,7 @@
     in {
       packages.${system}.default = pkgs.stdenv.mkDerivation {
         pname = "ytsurf";
-        version = "2.0.1"; # update when you tag releases
+        version = "2.0.2"; # update when you tag releases
 
         src = ./.;
 
