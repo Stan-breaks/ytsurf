@@ -5,7 +5,7 @@ set -u
 # CONSTANTS AND DEFAULTS
 #=============================================================================
 
-readonly SCRIPT_VERSION="2.0.0"
+readonly SCRIPT_VERSION="2.0.2"
 readonly SCRIPT_NAME="ytsurf"
 
 # Default configuration values
@@ -18,6 +18,7 @@ DEFAULT_HISTORY_MODE=false
 DEFAULT_FORMAT_SELECTION=false
 DEFAULT_MAX_HISTORY_ENTRIES=100
 DEFAULT_NOTIFY=true
+DEFAULT_COPY_MODE=false
 
 # System directories
 readonly CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/$SCRIPT_NAME"
@@ -43,6 +44,7 @@ notify="$DEFAULT_NOTIFY"
 editor="nvim"
 player="mpv"
 applications="$HOME/.local/share/applications/ytsurf/"
+copy_mode="$DEFAULT_COPY_MODE"
 
 # Runtime variables
 query=""
@@ -64,6 +66,28 @@ send_notification() {
     [ -z "${3:-}" ] && notify-send "$1" "$2" -t "$timeout"
     [ -n "${3:-}" ] && notify-send "$1" "$2" -t "$timeout" -i "$3"
   fi
+}
+
+#Send to clipboard
+clip() {
+  local url
+  url="${*//www.youtube.com\/watch?v=/youtu.be/}"
+  if command -v wl-copy &>/dev/null; then
+    printf "%s" "$url" | wl-copy
+  elif command -v xclip &>/dev/null; then
+    printf "%s" "$url" | xclip -selection clipboard
+  elif command -v xsel &>/dev/null; then
+    printf "%s" "$url" | xsel --clipboard --input
+  elif command -v pbcopy &>/dev/null; then
+    printf "%s" "$url" | pbcopy
+  elif [[ "$(uname -o 2>/dev/null)" == "Msys" ]] || [[ "$(uname -o 2>/dev/null)" == "Cygwin" ]]; then
+    printf "%s" "$url" >/dev/clipboard
+  elif grep -qi microsoft /proc/version 2>/dev/null; then
+    printf "%s" "$url" | powershell.exe Set-Clipboard
+  else
+    send_notification "Link" "$url"
+  fi
+  exit 0
 }
 
 create_desktop_entries() {
@@ -122,6 +146,7 @@ OPTIONS:
   --edit, -e      edit the configuration file
   --help, -h      Show this help message
   --version       Show version info
+  --copy-url      Copy or display the video link
 
 CONFIG:
   $CONFIG_FILE can contain default options like:
@@ -188,7 +213,7 @@ configuration() {
 #player="mpv"
 EOF
   fi
-# shellcheck disable=SC1090
+  # shellcheck disable=SC1090
   [ -f "$CONFIG_FILE" ] && source "$CONFIG_FILE"
 }
 
@@ -269,6 +294,10 @@ parse_arguments() {
       ;;
     --format | -f)
       format_selection=true
+      shift
+      ;;
+    --copy-url)
+      copy_mode=true
       shift
       ;;
     --limit | -l)
@@ -567,6 +596,10 @@ handle_history() {
   video_id="${history_ids[$selected_index]}"
   video_url="https://www.youtube.com/watch?v=$video_id"
 
+  [ "$copy_mode" == "true" ] && {
+    clip "$video_url"
+  }
+
   local video_duration video_author video_views video_published video_thumbnail
   video_duration=$(echo "$json_data" | jq -r ".[$selected_index].duration")
   video_author=$(echo "$json_data" | jq -r ".[$selected_index].author")
@@ -796,6 +829,10 @@ handle_search() {
   video_views=$(echo "$json_data" | jq -r ".[$selected_index].views")
   video_published=$(echo "$json_data" | jq -r ".[$selected_index].published")
   video_thumbnail=$(echo "$json_data" | jq -r ".[$selected_index].thumbnail")
+
+  [ "$copy_mode" == "true" ] && {
+    clip "$video_url"
+  }
 
   img_path="$TMPDIR/thumb_$video_id.jpg"
   # Add to history and perform action
