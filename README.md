@@ -23,6 +23,7 @@ A lightweight terminal tool to **search, stream, and download YouTube videos** w
 * 🔢 Adjustable search result limit
 * 📂 Custom download directory
 * ⬆️ Self-update (`--update`) **for manual installations only**
+* 🔗 Copy and share **short YouTube URLs** directly to your clipboard or print them in the terminal  
 
 
 
@@ -85,6 +86,7 @@ OPTIONS:
   --history         Show and replay from viewing history
   --limit, -l <N>   Limit number of search results (default: from config)
   --edit, -e        Edit the configuration file
+  --copy-url      Copy or display the video link
   --update, -u      Update the script to the latest version
 
 EXAMPLES:
