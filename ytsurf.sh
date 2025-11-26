@@ -779,14 +779,6 @@ handle_search() {
     exit 1
   }
 
-  # Build menu list
-  local menu_list=()
-  mapfile -t menu_list < <(echo "$json_data" | jq -r '.[].title' 2>/dev/null)
-
-  [ ${#menu_list[@]} -eq 0 ] && {
-    send_notification "Error" "No results found for '$query'"
-    exit 0
-  }
 
   # Select video
 
@@ -798,6 +790,14 @@ handle_search() {
     selected_index=$(echo "$json_data" | jq -r --arg id "$selected_id" 'map(.id) | index($id)')
     selected_title=$(echo "$json_data" | jq -r ".[$selected_index].title")
   else
+    # Build menu list
+    local menu_list=()
+    mapfile -t menu_list < <(echo "$json_data" | jq -r '.[].title' 2>/dev/null)
+
+    [ ${#menu_list[@]} -eq 0 ] && {
+      send_notification "Error" "No results found for '$query'"
+      exit 0
+    }
     selected_title=$(select_from_menu "${menu_list[@]}" "Search YouTube:" "$json_data" false)
   fi
 
