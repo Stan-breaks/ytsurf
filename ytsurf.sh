@@ -15,6 +15,7 @@ DEFAULT_USE_ROFI=false
 DEFAULT_USE_SENTAKU=false
 DEFAULT_DOWNLOAD_MODE=false
 DEFAULT_HISTORY_MODE=false
+DEFAULT_SUB_MODE=false
 DEFAULT_FORMAT_SELECTION=false
 DEFAULT_MAX_HISTORY_ENTRIES=100
 DEFAULT_NOTIFY=true
@@ -25,6 +26,7 @@ readonly CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/$SCRIPT_NAME"
 readonly CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/$SCRIPT_NAME"
 readonly HISTORY_FILE="$CACHE_DIR/history.json"
 readonly CONFIG_FILE="$CONFIG_DIR/config"
+readonly SUB_FILE="$CONFIG_DIR/sub.txt"
 
 #=============================================================================
 # GLOBAL VARIABLES
@@ -37,6 +39,7 @@ use_rofi="$DEFAULT_USE_ROFI"
 use_sentaku="$DEFAULT_USE_SENTAKU"
 download_mode="$DEFAULT_DOWNLOAD_MODE"
 history_mode="$DEFAULT_HISTORY_MODE"
+sub_mode="$DEFAULT_SUB_MODE"
 format_selection="$DEFAULT_FORMAT_SELECTION"
 download_dir="${XDG_DOWNLOAD_DIR:-$HOME/Downloads}"
 max_history_entries="$DEFAULT_MAX_HISTORY_ENTRIES"
@@ -53,6 +56,99 @@ TMPDIR=""
 #=============================================================================
 # UTILITY FUNCTIONS
 #=============================================================================
+
+search_channel(){
+cacheKey=$(echo -n "$query channel" | sha256sum | cut -d' ' -f1)
+cacheFile="$CACHE_DIR/$cacheKey"
+
+if [[ -f "$cacheFile" && $(find "$cacheFile" -mmin -10 2>/dev/null) ]]; then
+    cat "$cacheFile"
+else
+    local jsonData
+    encodedQuery=$(jq -rn --arg q "$query" '$q|@uri')
+    jsonData=$(curl -s "https://www.youtube.com/results?search_query=${encodedQuery}&sp=EgIQAg%3D%3D&hl=en&gl=US" \
+      | grep -oP 'var ytInitialData = \K.*?(?=;</script>)'\
+      | jq -r '.contents.twoColumnSearchResultsRenderer.primaryContents.sectionListRenderer.contents[0].itemSectionRenderer.contents
+      | map(.channelRenderer)
+      | map({
+              channelId: .channelId,
+              channelName: .subscriberCountText.simpleText,
+              title:.title.simpleText,
+              thumbnail:("https:"+.thumbnail.thumbnails[0].url),
+              subscribers:.videoCountText.simpleText,
+           })
+          |.[0:5]
+          | map(select(.channelName != null and .subscribers != null))'\
+    )
+    echo "$jsonData" > "$cacheFile"
+    echo "$jsonData"
+fi
+}
+
+create_desktop_entries_channel() {
+
+  mkdir -p "$TMPDIR/applications"
+  mkdir -p "$applications"
+  [ ! -L "$applications" ] && ln -sf "$TMPDIR/applications/" "$applications"
+
+  # Loop through results
+  echo "$jsonData" | jq -c '.[]' | while read -r item; do
+    local title id thumbnail channelName img_path desktop_file
+    if ! jq -e . >/dev/null 2>&1 <<<"$item"; then
+      echo "Skipping invalid JSON item" >&2
+      break
+    fi
+    # Check if required fields exist and aren't null
+    title=$(jq -r '.title' <<<"$item")
+    id=$(jq -r '.channelId' <<<"$item")
+    channelName=$(jq -r '.channelName' <<<"$item")
+    thumbnail=$(jq -r '.thumbnail' <<<"$item")
+
+    image_path="$TMPDIR/$id.jpg"
+    desktop_file="$TMPDIR/applications/ytsurf-$id.desktop"
+
+    # Fetch thumbnail if missing
+    [[ ! -f "$image_path" ]] && curl -fsSL "$thumbnail" -o "$image_path" 2>/dev/null
+
+    cat >"$desktop_file" <<EOF
+[Desktop Entry]
+Name=$title
+Exec=echo $channelName
+Icon=$image_path
+Type=Application
+Categories=ytsurf;
+
+EOF
+  done
+}
+
+create_preview_script_fzf_channel() {
+  cat <<'EOF'
+idx=$(($1))
+id=$(echo "$jsonData" | jq -r ".[$idx].channelId" 2>/dev/null)
+title=$(echo "$jsonData" | jq -r ".[$idx].title" 2>/dev/null)
+channelName=$(echo "$jsonData" | jq -r ".[$idx].channelName" 2>/dev/null)
+subscribers=$(echo "$jsonData" | jq -r ".[$idx].subscribers" 2>/dev/null)
+thumbnail=$(echo "$jsonData" | jq -r ".[$idx].thumbnail" 2>/dev/null)
+EOF
+
+  cat <<'EOF'
+    echo -e "\033[1;36mTitle:\033[0m \033[1m$title\033[0m"
+    echo -e "\033[1;33mChannel Name:\033[0m $channelName"
+    echo -e "\033[1;32mSubscribers:\033[0m $subscribers"
+    echo
+    echo
+    
+    if command -v chafa &>/dev/null; then
+        img_path="$TMPDIR/$id.jpg"
+        [[ ! -f "$img_path" ]] && curl -fsSL "$thumbnail" -o "$img_path" 2>/dev/null
+        chafa --symbols=block --size=30x30 "$img_path" 2>/dev/null || echo "(failed to render thumbnail)"
+    else
+        echo "(chafa not available - no thumbnail preview)"
+    fi
+    echo
+EOF
+}
 
 command -v notify-send >/dev/null 2>&1 && notify="true" || notify="false" # check if notify-send is installed
 # Send notications
@@ -140,6 +236,9 @@ OPTIONS:
   --download      Download instead of playing
   --format        Interactively choose format/resolution
   --rofi          Use rofi instead of fzf for menus
+  --syncplay      Watch youtube with friend from the terminal
+  --subscribe, -S Add a channel to the subs.txt
+  --feed,-F       View videos from your feed
   --sentaku       Use sentaku instead of fzf or rofi(for system that can't compile go)
   --history       Show and replay from viewing history
   --limit <N>     Limit number of search results (default: $DEFAULT_LIMIT)
@@ -195,6 +294,7 @@ edit_config() {
 configuration() {
   mkdir -p "$CACHE_DIR" "$CONFIG_DIR"
   [ -f "$HISTORY_FILE" ] || echo "[]" >"$HISTORY_FILE"
+  [ -f "$SUB_FILE" ] || echo "" > "$SUB_FILE"
   # shellcheck source=/home/stan/.config/ytsurf/config
 
   if [ ! -f "$CONFIG_FILE" ]; then
@@ -296,6 +396,10 @@ parse_arguments() {
       format_selection=true
       shift
       ;;
+    --subscribe| -s)
+      shift 
+      sub_mode=true
+      ;;
     --copy-url)
       copy_mode=true
       shift
@@ -322,6 +426,33 @@ parse_arguments() {
       ;;
     esac
   done
+}
+
+#=============================================================================
+# Subscribe
+#=============================================================================
+
+subscribe(){
+  get_search_query
+  jsonData=$(search_channel)
+  export jsonData TMPDIR
+  if [[ "$use_rofi" == true ]];then
+    create_desktop_entries_channel 
+    selected_item=$(select_with_rofi_drun)
+  elif [[ "$use_sentaku" == true ]];then
+    selected_item=$(printf "%s\n" "${menu_items[@]}" | sed 's/ /␣/g' | sentaku)
+    selected_item=${selected_item//␣/ }
+  else
+    menuList=()
+    mapfile -t menuList < <(echo "$jsonData" | jq -r '.[].title' 2>/dev/null)
+    previewScript=$(create_preview_script_fzf_channel)
+    selected_item=$(printf "%s\n" "${menuList[@]}" | fzf \
+          --prompt="search channel" \
+          --preview="bash -c '$previewScript' -- {n}")
+  fi
+    echo "$selected_item" >> "$SUB_FILE"
+  query=""
+  STATE=EXIT;
 }
 
 #=============================================================================
@@ -686,6 +817,7 @@ fetch_search_results() {
   # Cache results
   echo "$parsed_data" >"$cache_file"
   echo "$parsed_data"
+
 }
 
 create_preview_script_fzf() {
@@ -844,9 +976,11 @@ handle_search() {
 main() {
   [ "$history_mode" == "true" ] && STATE="HISTORY"
   [ "$history_mode" == "true" ] || STATE="SEARCH"
+  [ "$sub_mode" == "true" ] && STATE=SUB
   while :; do
     case "$STATE" in
     SEARCH) handle_search ;;
+    SUB) subscribe;;
     PLAY) perform_action ;;
     HISTORY) handle_history ;;
     EXIT) break ;;
