@@ -436,6 +436,9 @@ subscribe(){
   get_search_query
   jsonData=$(search_channel)
   export jsonData TMPDIR
+  menuList=()
+  mapfile -t menuList < <(echo "$jsonData" | jq -r '.[].title' 2>/dev/null)
+
   if [[ "$use_rofi" == true ]];then
     create_desktop_entries_channel 
     selected_item=$(select_with_rofi_drun)
@@ -443,14 +446,21 @@ subscribe(){
     selected_item=$(printf "%s\n" "${menu_items[@]}" | sed 's/ /␣/g' | sentaku)
     selected_item=${selected_item//␣/ }
   else
-    menuList=()
-    mapfile -t menuList < <(echo "$jsonData" | jq -r '.[].title' 2>/dev/null)
     previewScript=$(create_preview_script_fzf_channel)
     selected_item=$(printf "%s\n" "${menuList[@]}" | fzf \
           --prompt="search channel" \
           --preview="bash -c '$previewScript' -- {n}")
   fi
-    echo "$selected_item" >> "$SUB_FILE"
+  idx=-1
+  for i in "${!menuList[@]}"; do
+      if [[ "${menuList[$i]}" == "$selected_item" ]]; then
+          idx=$i
+          break
+      fi
+  done
+  [[ "$idx" -eq -1 ]] && exit 0
+  name=$(echo "$jsonData" | jq -r ".[$idx].channelName")
+  echo "$selected_item,$name" >> "$SUB_FILE"
   query=""
   STATE=EXIT;
 }
@@ -824,6 +834,7 @@ create_preview_script_fzf() {
   local is_history="${1:-false}"
 
   cat <<'EOF'
+printf "\033[H\033[J"
 idx=$(($1))
 id=$(echo "$json_data" | jq -r ".[$idx].id" 2>/dev/null)
 title=$(echo "$json_data" | jq -r ".[$idx].title" 2>/dev/null)
@@ -854,7 +865,12 @@ EOF
     if command -v chafa &>/dev/null; then
         img_path="$TMPDIR/thumb_$id.jpg"
         [[ ! -f "$img_path" ]] && curl -fsSL "$thumbnail" -o "$img_path" 2>/dev/null
-        chafa --symbols=block --size=80x40 "$img_path" 2>/dev/null || echo "(failed to render thumbnail)"
+        img_h=$((FZF_PREVIEW_LINES - 10))
+        img_w=$((FZF_PREVIEW_COLUMNS - 4))
+        img_h=$(( img_h < 10 ? 10 : img_h ))
+        img_w=$(( img_w < 20 ? 20 : img_w ))
+        chafa --symbols=block --size="${img_w}x${img_h}" "$img_path" 2>/dev/null || echo "(failed to render thumbnail)"
+
     else
         echo "(chafa not available - no thumbnail preview)"
     fi
