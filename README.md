@@ -1,6 +1,6 @@
 # ytsurf
 
-A lightweight terminal tool to **search, stream, and download YouTube videos** with `mpv`, `yt-dlp`, and a fuzzy finder.
+YouTube in your terminal. Clean and distraction-free.
 
 <p align="center">
   <img width="720" alt="demo" src="https://github.com/user-attachments/assets/0771f53b-ad16-41a2-9938-9aaaf0eaa1ae" />
@@ -10,22 +10,18 @@ A lightweight terminal tool to **search, stream, and download YouTube videos** w
 
 ## ✨ Features
 
-* 🔍 Search YouTube directly from your terminal
-* 🎬 Play instantly with `mpv`
-* 👥 **Syncplay support** – watch videos together with friends in sync (instead of solo playback in `mpv`)
-* 🎧 Audio-only playback & downloads
-* 📥 Download videos or audio
-* 🎚 **Interactive format/quality selection** – choose resolution or audio format when playing *or* downloading
-* 🎨 Interactive menus with `fzf` (thumbnail previews via `chafa`), `rofi`, or `sentaku`
-* ⚙️ External config file for default options
-* 📜 10-minute search result caching
-* 🕘 Playback history and re-run support
-* 🔢 Adjustable search result limit
-* 📂 Custom download directory
-* ⬆️ Self-update (`--update`) **for manual installations only**
-* 🔗 Copy and share **short YouTube URLs** directly to your clipboard or print them in the terminal  
+- Syncplay support – watch videos together in sync
+- Audio-only playback & downloads
+- Download videos or audio
+- Interactive format/quality selection when playing or downloading
+- External config file
+- Playback history and quick re-play
+- Adjustable search result limit
+- Custom download directory
+- Self-update (--update) for manual installations only
+- Copy short YouTube URLs to clipboard or print them
 
-
+Channel subscriptions with a personalized feed
 
 | Selector          | Features                                        | Best For                          |
 | ----------------- |  ----------------------------------------------- | --------------------------------- |
@@ -75,19 +71,20 @@ USAGE:
   ytsurf [OPTIONS] [QUERY]
 
 OPTIONS:
-  -h, --help        Show help message
-  -V, --version     Show version info
-  --rofi            Use rofi for menus instead of fzf
-  --sentaku         Use sentaku instead of fzf/rofi (for systems without Go)
-  --audio           Play/download audio-only version
-  --download, -d    Download instead of playing
-  --syncplay        Use syncplay instead of mpv
-  --format, -f      Interactively choose format/resolution
-  --history         Show and replay from viewing history
-  --limit, -l <N>   Limit number of search results (default: from config)
-  --edit, -e        Edit the configuration file
+  --audio         Play/download audio-only version
+  --download      Download instead of playing
+  --format        Interactively choose format/resolution
+  --rofi          Use rofi instead of fzf for menus
+  --syncplay      Watch youtube with friend from the terminal
+  --subscribe, -S Add a channel to the subs.txt
+  --feed,-F       View videos from your feed
+  --sentaku       Use sentaku instead of fzf or rofi(for system that can't compile go)
+  --history       Show and replay from viewing history
+  --limit <N>     Limit number of search results (default: in the config)
+  --edit, -e      edit the configuration file
+  --help, -h      Show this help message
+  --version       Show version info
   --copy-url      Copy or display the video link
-  --update, -u      Update the script to the latest version
 
 EXAMPLES:
   ytsurf lo-fi study mix
@@ -101,7 +98,7 @@ Run `ytsurf` without arguments to enter interactive mode.
 
 ## ⚙️ Configuration
 
-Defaults can be set in `~/.config/ytsurf/config`.
+Defaults check for default config in `~/.config/ytsurf/config`.
 CLI flags always override config values.
 
 **Example config:**
