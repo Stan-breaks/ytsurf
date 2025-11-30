@@ -44,6 +44,7 @@ paru -S ytsurf
 ### Homebrew
 
 ```bash
+brew tap stan-breaks/ytsurf https://github.com/stan-breaks/ytsurf
 brew install stan-breaks/ytsurf/ytsurf
 ```
 
