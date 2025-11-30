@@ -5,7 +5,7 @@ set -u
 # CONSTANTS AND DEFAULTS
 #=============================================================================
 
-readonly SCRIPT_VERSION="2.0.2"
+readonly SCRIPT_VERSION="3.0.0"
 readonly SCRIPT_NAME="ytsurf"
 
 # Default configuration values
@@ -16,6 +16,7 @@ DEFAULT_USE_SENTAKU=false
 DEFAULT_DOWNLOAD_MODE=false
 DEFAULT_HISTORY_MODE=false
 DEFAULT_SUB_MODE=false
+DEFAULT_FEED_MODE=false
 DEFAULT_FORMAT_SELECTION=false
 DEFAULT_MAX_HISTORY_ENTRIES=100
 DEFAULT_NOTIFY=true
@@ -40,6 +41,7 @@ use_sentaku="$DEFAULT_USE_SENTAKU"
 download_mode="$DEFAULT_DOWNLOAD_MODE"
 history_mode="$DEFAULT_HISTORY_MODE"
 sub_mode="$DEFAULT_SUB_MODE"
+feed_mode="$DEFAULT_FEED_MODE"
 format_selection="$DEFAULT_FORMAT_SELECTION"
 download_dir="${XDG_DOWNLOAD_DIR:-$HOME/Downloads}"
 max_history_entries="$DEFAULT_MAX_HISTORY_ENTRIES"
@@ -56,6 +58,41 @@ TMPDIR=""
 #=============================================================================
 # UTILITY FUNCTIONS
 #=============================================================================
+
+fetch_feed(){
+   mapfile -t subs < "$SUB_FILE"
+   mapfile -t subs < <(printf "%s\n" "${subs[@]}" | shuf)
+   channels=${#subs[@]}
+   videos=$((15/"$channels"))
+   remaining=$((15%"$channels"))
+   jsonData="[]"
+   for ((i = 0 ; i < "$channels"; i++)); do
+      num=$videos
+      [[ (("$remaining" -gt 0)) ]] && {
+         ((num+=1))
+         ((remaining-=1))
+      }
+      IFS=',' read -r title channel <<< "${subs[$i]}"  
+      title=$(echo "$title"|xargs )
+      channel=$(echo "$channel"|xargs|jq -nr --arg str "$channel" '$str|@uri')
+      data=$(curl -s "https://www.youtube.com/$channel/videos"   | grep -oP 'var ytInitialData = \K.*?(?=;</script>)'\
+          | jq -r --arg author "$title" --argjson limit "$num" '.contents.twoColumnBrowseResultsRenderer.tabs[1].tabRenderer.content.richGridRenderer.contents
+          | map(.richItemRenderer.content.videoRenderer)
+          | map({
+              id: .videoId,
+              title: .title.runs[0].text,
+              duration: .lengthText.simpleText,
+              views: .shortViewCountText.simpleText,
+              author: $author,
+              published: .publishedTimeText.simpleText,
+              thumbnail: .thumbnail.thumbnails[0].url
+          })
+          |.[0:$limit]
+          ')
+      jsonData=$(jq -s '.[0]+.[1]' <(echo "$jsonData") <(echo "$data"))
+   done
+   echo "$jsonData"
+}
 
 search_channel(){
 cacheKey=$(echo -n "$query channel" | sha256sum | cut -d' ' -f1)
@@ -142,7 +179,11 @@ EOF
     if command -v chafa &>/dev/null; then
         img_path="$TMPDIR/$id.jpg"
         [[ ! -f "$img_path" ]] && curl -fsSL "$thumbnail" -o "$img_path" 2>/dev/null
-        chafa --symbols=block --size=30x30 "$img_path" 2>/dev/null || echo "(failed to render thumbnail)"
+        img_h=$((FZF_PREVIEW_LINES - 10))
+        img_w=$((FZF_PREVIEW_COLUMNS - 4))
+        img_h=$(( img_h < 10 ? 10 : img_h ))
+        img_w=$(( img_w < 20 ? 20 : img_w ))
+        chafa --symbols=block --size="${img_w}x${img_h}" "$img_path" 2>/dev/null || echo "(failed to render thumbnail)"
     else
         echo "(chafa not available - no thumbnail preview)"
     fi
@@ -294,7 +335,7 @@ edit_config() {
 configuration() {
   mkdir -p "$CACHE_DIR" "$CONFIG_DIR"
   [ -f "$HISTORY_FILE" ] || echo "[]" >"$HISTORY_FILE"
-  [ -f "$SUB_FILE" ] || echo "" > "$SUB_FILE"
+  [ -f "$SUB_FILE" ] || touch "$SUB_FILE"
   # shellcheck source=/home/stan/.config/ytsurf/config
 
   if [ ! -f "$CONFIG_FILE" ]; then
@@ -396,6 +437,10 @@ parse_arguments() {
       format_selection=true
       shift
       ;;
+    --feed | -F)
+      feed_mode=true 
+      shift 
+      ;;
     --subscribe| -s)
       shift 
       sub_mode=true
@@ -451,6 +496,10 @@ subscribe(){
           --prompt="search channel" \
           --preview="bash -c '$previewScript' -- {n}")
   fi
+  [ -n "$selected_item" ] || {
+    send_notification "Error" "No selection made."
+    exit 1
+  }
   idx=-1
   for i in "${!menuList[@]}"; do
       if [[ "${menuList[$i]}" == "$selected_item" ]]; then
@@ -461,6 +510,7 @@ subscribe(){
   [[ "$idx" -eq -1 ]] && exit 0
   name=$(echo "$jsonData" | jq -r ".[$idx].channelName")
   echo "$selected_item,$name" >> "$SUB_FILE"
+  send_notification "$SCRIPT_NAME" "Subscribed to $name"
   query=""
   STATE=EXIT;
 }
@@ -919,13 +969,22 @@ select_from_menu() {
   echo "$selected_item"
 }
 
-handle_search() {
-  get_search_query
-
-  json_data=$(fetch_search_results "$query") || {
-    send_notification "Error" "Failed to fetch search results for '$query'"
-    exit 1
+handle_selection() {
+  [[ "$feed_mode" == "true" ]] && {
+    json_data=$(fetch_feed)
+    [[ "$json_data" == "[]" ]] && {
+      send_notification "Error" "Failed to fetch your feed"
+      exit 1
+    }
   }
+  [[ "$feed_mode" == "true" ]] || {
+     get_search_query
+     json_data=$(fetch_search_results "$query") || {
+        send_notification "Error" "Failed to fetch search results for '$query'"
+        exit 1
+     }
+  }
+
 
 
   # Select video
@@ -988,14 +1047,43 @@ handle_search() {
   STATE="PLAY"
 }
 
+select_init(){
+  local chosen_action
+  local prompt="Select Action:"
+  local header="Available Actions"
+  local items=("Search youtube" "Add subscription" "Open your feed" "View your history")
+
+  if [[ "$use_rofi" == true ]]; then
+    chosen_action=$(printf "%s\n" "${items[@]}" | rofi -dmenu -p "$prompt" -mesg "$header")
+  elif [[ "$use_sentaku" == true ]]; then
+    chosen_action=$(printf "%s\n" "${items[@]}" | sentaku)
+  else
+    chosen_action=$(printf "%s\n" "${items[@]}" | fzf --prompt="$prompt" --header="$header")
+  fi
+
+  if [[ "$chosen_action" == "Add subscription" ]]; then
+    sub_mode="true"
+  elif [[ "$chosen_action" == "Open your feed" ]]; then
+    feed_mode="true"
+  elif [[ "$chosen_action" == "View your history" ]]; then
+    history_mode="true"
+  elif [[ "$chosen_action" == "Search youtube" ]]; then
+    STATE="SEARCH"
+  else
+    send_notification "Error" "no selection made"
+    exit 1
+  fi
+}
+
 # MAIN EXECUTION
 main() {
+  STATE="SEARCH"
+  [[ "$history_mode" != "true" && "$sub_mode" != "true" && "$feed_mode" != "true" ]] && select_init
   [ "$history_mode" == "true" ] && STATE="HISTORY"
-  [ "$history_mode" == "true" ] || STATE="SEARCH"
-  [ "$sub_mode" == "true" ] && STATE=SUB
+  [ "$sub_mode" == "true" ] && STATE="SUB"
   while :; do
     case "$STATE" in
-    SEARCH) handle_search ;;
+    SEARCH) handle_selection ;;
     SUB) subscribe;;
     PLAY) perform_action ;;
     HISTORY) handle_history ;;
