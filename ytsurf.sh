@@ -9,7 +9,7 @@ readonly SCRIPT_VERSION="3.0.0"
 readonly SCRIPT_NAME="ytsurf"
 
 # Default configuration values
-DEFAULT_LIMIT=10
+DEFAULT_LIMIT=15
 DEFAULT_AUDIO_ONLY=false
 DEFAULT_USE_ROFI=false
 DEFAULT_USE_SENTAKU=false
@@ -63,8 +63,8 @@ fetch_feed(){
    mapfile -t subs < "$SUB_FILE"
    mapfile -t subs < <(printf "%s\n" "${subs[@]}" | shuf)
    channels=${#subs[@]}
-   videos=$((15/"$channels"))
-   remaining=$((15%"$channels"))
+   videos=$(("$limit"/"$channels"))
+   remaining=$(("$limit"%"$channels"))
    jsonData="[]"
    for ((i = 0 ; i < "$channels"; i++)); do
       num=$videos
