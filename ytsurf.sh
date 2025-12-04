@@ -76,7 +76,7 @@ fetch_feed(){
       title=$(echo "$title"|xargs )
       channel=$(echo "$channel"|xargs|jq -nr --arg str "$channel" '$str|@uri')
       data=$(curl -s "https://www.youtube.com/$channel/videos"   | grep -oP 'var ytInitialData = \K.*?(?=;</script>)'\
-          | jq -r --arg author "$title" --argjson limit "$num" '.contents.twoColumnBrowseResultsRenderer.tabs[1].tabRenderer.content.richGridRenderer.contents
+          | jq -r --arg author "$title" '.contents.twoColumnBrowseResultsRenderer.tabs[1].tabRenderer.content.richGridRenderer.contents
           | map(.richItemRenderer.content.videoRenderer)
           | map({
               id: .videoId,
@@ -87,8 +87,8 @@ fetch_feed(){
               published: .publishedTimeText.simpleText,
               thumbnail: .thumbnail.thumbnails[0].url
           })
-          |.[0:$limit]
           ')
+      data=$(echo "$data" | jq -c '.[]' | shuf | jq -s '.' | jq -r --argjson limit "$num" '.[0:$limit]')
       jsonData=$(jq -s '.[0]+.[1]' <(echo "$jsonData") <(echo "$data"))
    done
    echo "$jsonData"
@@ -1015,7 +1015,6 @@ handle_selection() {
     }
   done
 
-  echo "$selected_index"
   [ "$selected_index" -lt 0 ] && {
     send_notification "Error" " Could not resolve selected video."
     exit 1
