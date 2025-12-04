@@ -20,8 +20,8 @@ YouTube in your terminal. Clean and distraction-free.
 - Custom download directory
 - Self-update (--update) for manual installations only
 - Copy short YouTube URLs to clipboard or print them
+- Channel subscriptions with a personalized feed
 
-Channel subscriptions with a personalized feed
 
 | Selector          | Features                                        | Best For                          |
 | ----------------- |  ----------------------------------------------- | --------------------------------- |
