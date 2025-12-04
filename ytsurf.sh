@@ -509,8 +509,14 @@ subscribe(){
   done
   [[ "$idx" -eq -1 ]] && exit 0
   name=$(echo "$jsonData" | jq -r ".[$idx].channelName")
-  echo "$selected_item,$name" >> "$SUB_FILE"
-  send_notification "$SCRIPT_NAME" "Subscribed to $name"
+  line="$selected_item,$name"
+
+  if ! grep -Fxq "$line" "$SUB_FILE"; then
+    echo "$line" >> "$SUB_FILE"
+    send_notification "$SCRIPT_NAME" "Subscribed to $name"
+  else
+    send_notification "$SCRIPT_NAME" "Aleardy Subscribed to $selected_item"
+  fi
   query=""
   STATE=EXIT;
 }
