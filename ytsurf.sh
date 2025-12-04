@@ -772,7 +772,18 @@ handle_history() {
   fi
 
   # Select from history
-  selected_title=$(select_from_menu "${history_titles[@]}" "Watch history:" "$json_data" true)
+  if [[ "$use_rofi" == true ]]; then
+    create_desktop_entries "$json_data"
+    selected_title=$(select_with_rofi_drun)
+    rm -rf "$TMPDIR/applications"
+
+  else
+      [ ${#menu_list[@]} -eq 0 ] && {
+      send_notification "Error" "No results found for '$query'"
+      exit 0
+    }
+   selected_title=$(select_from_menu "${history_titles[@]}" "Watch history:" "$json_data" true)
+  fi
 
   [ -z "$selected_title" ] && {
     send_notification "Error" "No selection made."
