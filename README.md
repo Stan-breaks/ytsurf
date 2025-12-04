@@ -1,7 +1,11 @@
 # ytsurf
 
 YouTube in your terminal. Clean and distraction-free.
-
+<p align="center">
+  <a href="https://discord.gg/bbHvSyR7" target="_blank" rel="noopener noreferrer">
+    <img src="https://img.shields.io/badge/Discord-Join%20the%20community-5865F2?logo=discord&logoColor=white" alt="Join our Discord" />
+  </a>
+</p>
 <p align="center">
   <img width="720" alt="demo" src="https://github.com/user-attachments/assets/0771f53b-ad16-41a2-9938-9aaaf0eaa1ae" />
 </p>
