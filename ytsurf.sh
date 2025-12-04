@@ -135,7 +135,7 @@ create_desktop_entries_channel() {
 
   # Loop through results
   echo "$jsonData" | jq -c '.[]' | while read -r item; do
-    local title id thumbnail channelName img_path desktop_file
+    local title id thumbnail img_path desktop_file
     if ! jq -e . >/dev/null 2>&1 <<<"$item"; then
       echo "Skipping invalid JSON item" >&2
       break
@@ -143,7 +143,6 @@ create_desktop_entries_channel() {
     # Check if required fields exist and aren't null
     title=$(jq -r '.title' <<<"$item")
     id=$(jq -r '.channelId' <<<"$item")
-    channelName=$(jq -r '.channelName' <<<"$item")
     thumbnail=$(jq -r '.thumbnail' <<<"$item")
 
     image_path="$TMPDIR/$id.jpg"
@@ -155,7 +154,7 @@ create_desktop_entries_channel() {
     cat >"$desktop_file" <<EOF
 [Desktop Entry]
 Name=$title
-Exec=echo $channelName
+Exec=echo $title
 Icon=$image_path
 Type=Application
 Categories=ytsurf;
@@ -492,6 +491,7 @@ subscribe(){
   if [[ "$use_rofi" == true ]];then
     create_desktop_entries_channel 
     selected_item=$(select_with_rofi_drun)
+    rm -rf "$TMPDIR/applications"
   elif [[ "$use_sentaku" == true ]];then
     selected_item=$(printf "%s\n" "${menu_items[@]}" | sed 's/ /␣/g' | sentaku)
     selected_item=${selected_item//␣/ }
