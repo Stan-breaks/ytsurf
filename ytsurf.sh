@@ -255,7 +255,7 @@ create_desktop_entries() {
     cat >"$desktop_file" <<EOF
 [Desktop Entry]
 Name=$title
-Exec=echo $id
+Exec=echo $title
 Icon=$image_path
 Type=Application
 Categories=ytsurf;
@@ -442,8 +442,8 @@ parse_arguments() {
       shift 
       ;;
     --subscribe| -s)
-      shift 
       sub_mode=true
+      shift 
       ;;
     --copy-url)
       copy_mode=true
@@ -985,19 +985,12 @@ handle_selection() {
      }
   }
 
-
-
-  # Select video
-
   if [[ "$use_rofi" == true ]]; then
     create_desktop_entries "$json_data"
-    selected_id=$(select_with_rofi_drun)
+    selected_title=$(select_with_rofi_drun)
     rm -rf "$TMPDIR/applications"
 
-    selected_index=$(echo "$json_data" | jq -r --arg id "$selected_id" 'map(.id) | index($id)')
-    selected_title=$(echo "$json_data" | jq -r ".[$selected_index].title")
   else
-    # Build menu list
     local menu_list=()
     mapfile -t menu_list < <(echo "$json_data" | jq -r '.[].title' 2>/dev/null)
 
@@ -1022,6 +1015,7 @@ handle_selection() {
     }
   done
 
+  echo "$selected_index"
   [ "$selected_index" -lt 0 ] && {
     send_notification "Error" " Could not resolve selected video."
     exit 1
