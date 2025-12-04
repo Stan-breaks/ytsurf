@@ -63,8 +63,13 @@ fetch_feed(){
    mapfile -t subs < "$SUB_FILE"
    mapfile -t subs < <(printf "%s\n" "${subs[@]}" | shuf)
    channels=${#subs[@]}
-   videos=$(("$limit"/"$channels"))
-   remaining=$(("$limit"%"$channels"))
+   if [[ "$channels" -gt "$limit" ]];then
+     videos=1
+     remaining=0
+   else 
+     videos=$(("$limit"/"$channels"))
+     remaining=$(("$limit"%"$channels"))
+   fi
    jsonData="[]"
    for ((i = 0 ; i < "$channels"; i++)); do
       num=$videos
