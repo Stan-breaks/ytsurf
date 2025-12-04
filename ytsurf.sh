@@ -994,7 +994,10 @@ handle_selection() {
         send_notification "Error" "Failed to fetch search results for '$query'"
         exit 1
      }
-  }
+  } 
+
+  local menu_list=()
+  mapfile -t menu_list < <(echo "$json_data" | jq -r '.[].title' 2>/dev/null)
 
   if [[ "$use_rofi" == true ]]; then
     create_desktop_entries "$json_data"
@@ -1002,10 +1005,7 @@ handle_selection() {
     rm -rf "$TMPDIR/applications"
 
   else
-    local menu_list=()
-    mapfile -t menu_list < <(echo "$json_data" | jq -r '.[].title' 2>/dev/null)
-
-    [ ${#menu_list[@]} -eq 0 ] && {
+      [ ${#menu_list[@]} -eq 0 ] && {
       send_notification "Error" "No results found for '$query'"
       exit 0
     }
@@ -1017,7 +1017,6 @@ handle_selection() {
     exit 1
   }
 
-  # Find selected video index
   local selected_index=-1
   for i in "${!menu_list[@]}"; do
     [ "${menu_list[$i]}" == "$selected_title" ] && {
@@ -1027,7 +1026,7 @@ handle_selection() {
   done
 
   [ "$selected_index" -lt 0 ] && {
-    send_notification "Error" " Could not resolve selected video."
+    send_notification "Error" " could not resolve selected video."
     exit 1
   }
 
