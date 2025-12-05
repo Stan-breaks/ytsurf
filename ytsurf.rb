@@ -1,8 +1,8 @@
 class Ytsurf < Formula
   desc "YouTube in your terminal. Clean and distraction-free"
   homepage ""
-  url "https://github.com/Stan-breaks/ytsurf/archive/refs/tags/v3.0.1.zip"
-  sha256 "214cc9701fb5f190c93ca917c3525a289ce4d6d377d972481b41fa9a944ba4fe"
+  url "https://github.com/Stan-breaks/ytsurf/archive/refs/tags/v3.0.2.zip"
+  sha256 "5714196c2b6f48f496181a9cde334feb3d7585df4bc5ddb02770ac715b5acb66"
   version "3.0.2"
   license "GPL-3.0"
   
