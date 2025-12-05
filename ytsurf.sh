@@ -445,7 +445,7 @@ parse_arguments() {
       feed_mode=true 
       shift 
       ;;
-    --subscribe| -s)
+    --subscribe| -S)
       sub_mode=true
       shift 
       ;;
