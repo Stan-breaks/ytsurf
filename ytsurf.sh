@@ -282,7 +282,7 @@ OPTIONS:
   --format        Interactively choose format/resolution
   --rofi          Use rofi instead of fzf for menus
   --syncplay      Watch youtube with friend from the terminal
-  --subscribe, -S Add a channel to the subs.txt
+  --subscribe, -s Add a channel to the subs.txt
   --feed,-F       View videos from your feed
   --sentaku       Use sentaku instead of fzf or rofi(for system that can't compile go)
   --history       Show and replay from viewing history
