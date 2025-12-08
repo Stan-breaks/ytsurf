@@ -7,10 +7,9 @@
 
   outputs =
     { self, nixpkgs }:
-    let
-      system = "x86_64-linux";
-    in
     {
-      packages.${system}.default = nixpkgs.legacyPackages.${system}.callPackage ./package.nix { };
+      packages = nixpkgs.lib.genAttrs nixpkgs.lib.systems.flakeExposed (system: {
+        default = nixpkgs.legacyPackages.${system}.callPackage ./package.nix { };
+      });
     };
 }
