@@ -127,6 +127,25 @@ audio_only=true
 download_dir="$HOME/Videos/YouTube"
 ```
 
+## 🛠️ Troubleshooting
+MPV doesn't play the selected video
+
+Some systems have mpv configured to prefer youtube-dl instead of yt-dlp, which causes ytsurf to show “playing…” without actually starting playback.
+
+Fix: Rename your yt-dlp binary so that MPV uses it automatically:
+
+```bash
+sudo mv /usr/bin/yt-dlp /usr/bin/youtube-dl
+```
+
+Or create a symlink instead (safer):
+```bash
+sudo ln -s /usr/bin/yt-dlp /usr/local/bin/youtube-dl
+```
+
+
+MPV will now correctly pick up yt-dlp for streaming.
+
 
 ## 🤝 Contributing
 
