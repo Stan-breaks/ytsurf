@@ -6,8 +6,12 @@
   };
 
   outputs =
-    { self, nixpkgs }:
+    { nixpkgs, ... }:
     {
+      overlays.default = final: _: {
+        ytsurf = final.callPackage ./package.nix { };
+      };
+
       packages = nixpkgs.lib.genAttrs nixpkgs.lib.systems.flakeExposed (system: {
         default = nixpkgs.legacyPackages.${system}.callPackage ./package.nix { };
       });
