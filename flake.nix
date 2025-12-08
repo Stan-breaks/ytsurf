@@ -12,11 +12,5 @@
     in
     {
       packages.${system}.default = nixpkgs.legacyPackages.${system}.callPackage ./package.nix { };
-
-      # Allows `nix run .`
-      apps.${system}.default = {
-        type = "app";
-        program = "${self.packages.${system}.default}/bin/ytsurf";
-      };
     };
 }

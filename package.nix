@@ -40,4 +40,6 @@ stdenvNoCC.mkDerivation {
 
     runHook postInstall
   '';
+
+  meta.mainProgram = "ytsurf";
 }
