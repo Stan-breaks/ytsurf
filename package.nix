@@ -14,17 +14,16 @@ stdenvNoCC.mkDerivation {
   pname = "ytsurf";
   version = "3.0.2"; # update when you tag releases
 
-  src = ./.;
-
   nativeBuildInputs = [ makeWrapper ];
 
+  dontUnpack = true;
   dontConfigure = true;
   dontBuild = true;
 
   installPhase = ''
     runHook preInstall
 
-    install -Dm777 ytsurf.sh $out/bin/ytsurf
+    install -Dm777 ${./ytsurf.sh} $out/bin/ytsurf
     wrapProgram $out/bin/ytsurf \
       --prefix PATH : ${
         lib.makeBinPath [
