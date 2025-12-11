@@ -5,39 +5,15 @@
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
   };
 
-  outputs = { self, nixpkgs }:
-    let
-      system = "x86_64-linux";
-      pkgs = import nixpkgs { inherit system; };
-    in {
-      packages.${system}.default = pkgs.stdenv.mkDerivation {
-        pname = "ytsurf";
-        version = "3.0.2"; # update when you tag releases
-
-        src = ./.;
-
-        buildInputs = [
-          pkgs.bash
-          pkgs.yt-dlp
-          pkgs.jq
-          pkgs.curl
-          pkgs.mpv
-          pkgs.fzf
-          pkgs.chafa
-          pkgs.ffmpeg
-        ];
-
-        installPhase = ''
-          mkdir -p $out/bin
-          cp ytsurf.sh $out/bin/ytsurf
-          chmod +x $out/bin/ytsurf
-        '';
+  outputs =
+    { nixpkgs, ... }:
+    {
+      overlays.default = final: _: {
+        ytsurf = final.callPackage ./package.nix { };
       };
 
-      # Allows `nix run .`
-      apps.${system}.default = {
-        type = "app";
-        program = "${self.packages.${system}.default}/bin/ytsurf";
-      };
+      packages = nixpkgs.lib.genAttrs nixpkgs.lib.systems.flakeExposed (system: {
+        default = nixpkgs.legacyPackages.${system}.callPackage ./package.nix { };
+      });
     };
 }
