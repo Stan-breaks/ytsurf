@@ -2,7 +2,7 @@
 
 YouTube in your terminal. Clean and distraction-free.
 <p align="center">
-  <a href="https://discord.gg/bbHvSyR7" target="_blank" rel="noopener noreferrer">
+  <a href="https://discord.gg/z6u6zwwedz" target="_blank" rel="noopener noreferrer">
     <img src="https://img.shields.io/badge/Discord-Join%20the%20community-5865F2?logo=discord&logoColor=white" alt="Join our Discord" />
   </a>
 </p>
