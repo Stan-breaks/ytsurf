@@ -5,7 +5,7 @@ set -u
 # CONSTANTS AND DEFAULTS
 #=============================================================================
 
-readonly SCRIPT_VERSION="3.0.2"
+readonly SCRIPT_VERSION="3.0.3"
 readonly SCRIPT_NAME="ytsurf"
 
 # Default configuration values
@@ -534,7 +534,7 @@ select_action() {
   local chosen_action
   local prompt="Select Action:"
   local header="Available Actions"
-  local items=("watch" "download")
+  local items=("watch" "watch with friends" "download")
 
   if [[ "$use_rofi" == true ]]; then
     chosen_action=$(printf "%s\n" "${items[@]}" | rofi -dmenu -p "$prompt" -mesg "$header")
@@ -546,6 +546,10 @@ select_action() {
 
   if [[ "$chosen_action" == "watch" ]]; then
     echo false
+  elif [[ "$chosen_action" == "watch with friends" ]];then
+    player="syncplay"
+    echo false
+
   elif [[ -z "$chosen_action" ]]; then
     return 1
   else
