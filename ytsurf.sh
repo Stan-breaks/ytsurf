@@ -489,7 +489,8 @@ subscribe(){
     selected_item=$(printf "%s\n" "${menu_items[@]}" | sed 's/ /␣/g' | sentaku)
     selected_item=${selected_item//␣/ }
   else
-    previewScript=$(create_preview_script_fzf)
+    echo "$jsonData"
+    previewScript=$(create_preview_script_fzf_channel)
     selected_item=$(printf "%s\n" "${menuList[@]}" | fzf \
           --prompt="search channel" \
           --preview="bash -c '$previewScript' -- {n}")
