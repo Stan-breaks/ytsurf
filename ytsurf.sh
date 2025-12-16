@@ -61,43 +61,33 @@ TMPDIR=""
 
 fetch_feed(){
    mapfile -t subs < "$SUB_FILE"
-   mapfile -t subs < <(printf "%s\n" "${subs[@]}" | shuf)
-   channels=${#subs[@]}
-   if [[ "$channels" -gt "$limit" ]];then
-     videos=1
-     remaining=0
-   else 
-     videos=$(("$limit"/"$channels"))
-     remaining=$(("$limit"%"$channels"))
-   fi
-   jsonData="[]"
-   for ((i = 0 ; i < "$channels"; i++)); do
-      num=$videos
-      [[ (("$remaining" -gt 0)) ]] && {
-         ((num+=1))
-         ((remaining-=1))
-      }
-      IFS=',' read -r title channel <<< "${subs[$i]}"  
-      title=$(echo "$title"|xargs )
-      channel=$(echo "$channel"|xargs|jq -nr --arg str "$channel" '$str|@uri')
-      data=$(curl -s "https://www.youtube.com/$channel/videos"   | grep -oP 'var ytInitialData = \K.*?(?=;</script>)'\
-          | jq -r --arg author "$title" '.contents.twoColumnBrowseResultsRenderer.tabs[1].tabRenderer.content.richGridRenderer.contents
-          | map(.richItemRenderer.content.videoRenderer)
-          | map({
-              id: .videoId,
-              title: .title.runs[0].text,
-              duration: .lengthText.simpleText,
-              views: .shortViewCountText.simpleText,
-              author: $author,
-              published: .publishedTimeText.simpleText,
-              thumbnail: .thumbnail.thumbnails[0].url
-          })
-          ')
-      data=$(echo "$data" | jq -c '.[]' | shuf | jq -s '.' | jq -r --argjson limit "$num" '.[0:$limit]')
-      jsonData=$(jq -s '.[0]+.[1]' <(echo "$jsonData") <(echo "$data"))
-   done
-   echo "$jsonData"
+   printf "%s\n" "${subs[@]}" | shuf | xargs -P 6 -I{} bash -c 'process_channel "$@"' _ {} 2>/dev/null | jq -c '.[]'| shuf | head -n "$limit" | jq -s '.'
 }
+
+process_channel(){
+  IFS=',' read -r title channel <<< "$1"
+  title=$(xargs <<< "$title")
+  channel=$(xargs <<< "$channel" | jq -nr --arg str "$channel" '$str|@uri' )
+  curl -s --compressed --http1.1 --keepalive-time 30 \
+    "https://www.youtube.com/$channel/videos" |
+    sed -n 's/.*var ytInitialData = \(.*\);<\/script>.*/\1/p' |
+    jq --arg author "$title" '
+      .contents.twoColumnBrowseResultsRenderer.tabs[1]
+      .tabRenderer.content.richGridRenderer.contents
+      | map(.richItemRenderer.content.videoRenderer?)
+      | map(select(.videoId and .title.runs[0].text))
+      | map({
+          id: .videoId,
+          title: .title.runs[0].text,
+          duration: .lengthText.simpleText,
+          views: .shortViewCountText.simpleText,
+          author: $author,
+          published: .publishedTimeText.simpleText,
+          thumbnail: .thumbnail.thumbnails[0].url
+      })
+  ' 2>/dev/null
+}
+export -f process_channel
 
 search_channel(){
 cacheKey=$(echo -n "$query channel" | sha256sum | cut -d' ' -f1)
@@ -108,8 +98,8 @@ if [[ -f "$cacheFile" && $(find "$cacheFile" -mmin -10 2>/dev/null) ]]; then
 else
     local jsonData
     encodedQuery=$(jq -rn --arg q "$query" '$q|@uri')
-    jsonData=$(curl -s "https://www.youtube.com/results?search_query=${encodedQuery}&sp=EgIQAg%3D%3D&hl=en&gl=US" \
-      | grep -oP 'var ytInitialData = \K.*?(?=;</script>)'\
+    jsonData=$(curl -s --compressed --http1.1 --keepalive-time 30 "https://www.youtube.com/results?search_query=${encodedQuery}&sp=EgIQAg%3D%3D&hl=en&gl=US" \
+      | sed -n 's/.*var ytInitialData = \(.*\);<\/script>.*/\1/p' \
       | jq -r '.contents.twoColumnSearchResultsRenderer.primaryContents.sectionListRenderer.contents[0].itemSectionRenderer.contents
       | map(.channelRenderer)
       | map({
@@ -121,79 +111,14 @@ else
            })
           |.[0:5]
           | map(select(.channelName != null and .subscribers != null))'\
+          2>/dev/null \
     )
     echo "$jsonData" > "$cacheFile"
     echo "$jsonData"
 fi
 }
 
-create_desktop_entries_channel() {
 
-  mkdir -p "$TMPDIR/applications"
-  mkdir -p "$applications"
-  [ ! -L "$applications" ] && ln -sf "$TMPDIR/applications/" "$applications"
-
-  # Loop through results
-  echo "$jsonData" | jq -c '.[]' | while read -r item; do
-    local title id thumbnail img_path desktop_file
-    if ! jq -e . >/dev/null 2>&1 <<<"$item"; then
-      echo "Skipping invalid JSON item" >&2
-      break
-    fi
-    # Check if required fields exist and aren't null
-    title=$(jq -r '.title' <<<"$item")
-    id=$(jq -r '.channelId' <<<"$item")
-    thumbnail=$(jq -r '.thumbnail' <<<"$item")
-
-    image_path="$TMPDIR/$id.jpg"
-    desktop_file="$TMPDIR/applications/ytsurf-$id.desktop"
-
-    # Fetch thumbnail if missing
-    [[ ! -f "$image_path" ]] && curl -fsSL "$thumbnail" -o "$image_path" 2>/dev/null
-
-    cat >"$desktop_file" <<EOF
-[Desktop Entry]
-Name=$title
-Exec=echo $title
-Icon=$image_path
-Type=Application
-Categories=ytsurf;
-
-EOF
-  done
-}
-
-create_preview_script_fzf_channel() {
-  cat <<'EOF'
-idx=$(($1))
-id=$(echo "$jsonData" | jq -r ".[$idx].channelId" 2>/dev/null)
-title=$(echo "$jsonData" | jq -r ".[$idx].title" 2>/dev/null)
-channelName=$(echo "$jsonData" | jq -r ".[$idx].channelName" 2>/dev/null)
-subscribers=$(echo "$jsonData" | jq -r ".[$idx].subscribers" 2>/dev/null)
-thumbnail=$(echo "$jsonData" | jq -r ".[$idx].thumbnail" 2>/dev/null)
-EOF
-
-  cat <<'EOF'
-    echo -e "\033[1;36mTitle:\033[0m \033[1m$title\033[0m"
-    echo -e "\033[1;33mChannel Name:\033[0m $channelName"
-    echo -e "\033[1;32mSubscribers:\033[0m $subscribers"
-    echo
-    echo
-    
-    if command -v chafa &>/dev/null; then
-        img_path="$TMPDIR/$id.jpg"
-        [[ ! -f "$img_path" ]] && curl -fsSL "$thumbnail" -o "$img_path" 2>/dev/null
-        img_h=$((FZF_PREVIEW_LINES - 10))
-        img_w=$((FZF_PREVIEW_COLUMNS - 4))
-        img_h=$(( img_h < 10 ? 10 : img_h ))
-        img_w=$(( img_w < 20 ? 20 : img_w ))
-        chafa --symbols=block --size="${img_w}x${img_h}" "$img_path" 2>/dev/null || echo "(failed to render thumbnail)"
-    else
-        echo "(chafa not available - no thumbnail preview)"
-    fi
-    echo
-EOF
-}
 
 command -v notify-send >/dev/null 2>&1 && notify="true" || notify="false" # check if notify-send is installed
 # Send notications
@@ -231,6 +156,74 @@ clip() {
   exit 0
 }
 
+create_desktop_entries_channel() {
+
+  mkdir -p "$TMPDIR/applications"
+  mkdir -p "$applications"
+  [ ! -L "$applications" ] && ln -sf "$TMPDIR/applications/" "$applications"
+
+  # Loop through results
+  echo "$jsonData" | jq -c '.[]' | while read -r item; do
+    local title id thumbnail img_path desktop_file
+    if ! jq -e . >/dev/null 2>&1 <<<"$item"; then
+      echo "Skipping invalid JSON item" >&2
+      break
+    fi
+    # Check if required fields exist and aren't null
+    title=$(jq -r '.title' <<<"$item")
+    id=$(jq -r '.channelId' <<<"$item")
+    thumbnail=$(jq -r '.thumbnail' <<<"$item")
+
+    image_path="$TMPDIR/$id.jpg"
+    desktop_file="$TMPDIR/applications/ytsurf-$id.desktop"
+
+    # Fetch thumbnail if missing
+    [[ ! -f "$image_path" ]] && curl -fsSL "$thumbnail" -o "$image_path" 2>/dev/null
+
+    cat >"$desktop_file" <<EOF
+[Desktop Entry]
+Name=$title
+Exec=echo $title
+Icon=$image_path
+Type=Application
+Categories=ytsurf;
+EOF
+  done
+}
+
+create_preview_script_fzf_channel() {
+  cat <<'EOF'
+idx=$(($1))
+id=$(echo "$jsonData" | jq -r ".[$idx].channelId" 2>/dev/null)
+title=$(echo "$jsonData" | jq -r ".[$idx].title" 2>/dev/null)
+channelName=$(echo "$jsonData" | jq -r ".[$idx].channelName" 2>/dev/null)
+subscribers=$(echo "$jsonData" | jq -r ".[$idx].subscribers" 2>/dev/null)
+thumbnail=$(echo "$jsonData" | jq -r ".[$idx].thumbnail" 2>/dev/null)
+EOF
+
+  cat <<'EOF'
+    echo -e "\033[1;36mTitle:\033[0m \033[1m$title\033[0m"
+    echo -e "\033[1;33mChannel Name:\033[0m $channelName"
+    echo -e "\033[1;32mSubscribers:\033[0m $subscribers"
+    echo
+    echo
+    
+    if command -v chafa &>/dev/null; then
+        img_path="$TMPDIR/$id.jpg"
+        [[ ! -f "$img_path" ]] && curl -fsSL --compressed --http1.1 --keepalive-time 30  "$thumbnail" -o "$img_path" 2>/dev/null
+        img_h=$((FZF_PREVIEW_LINES - 10))
+        img_w=$((FZF_PREVIEW_COLUMNS - 4))
+        img_h=$(( img_h < 10 ? 10 : img_h ))
+        img_w=$(( img_w < 20 ? 20 : img_w ))
+        chafa --symbols=block --size="${img_w}x${img_h}" "$img_path" 2>/dev/null || echo "(failed to render thumbnail)"
+    else
+        echo "(chafa not available - no thumbnail preview)"
+    fi
+    echo
+EOF
+}
+
+
 create_desktop_entries() {
   local json_data="$1"
 
@@ -254,7 +247,7 @@ create_desktop_entries() {
     desktop_file="$TMPDIR/applications/ytsurf-$id.desktop"
 
     # Fetch thumbnail if missing
-    [[ ! -f "$image_path" ]] && curl -fsSL "$thumbnail" -o "$image_path" 2>/dev/null
+    [[ ! -f "$image_path" ]] && curl -fsSL --compressed --http1.1 --keepalive-time 30 "$thumbnail" -o "$image_path" 2>/dev/null
 
     cat >"$desktop_file" <<EOF
 [Desktop Entry]
@@ -496,7 +489,7 @@ subscribe(){
     selected_item=$(printf "%s\n" "${menu_items[@]}" | sed 's/ /␣/g' | sentaku)
     selected_item=${selected_item//␣/ }
   else
-    previewScript=$(create_preview_script_fzf_channel)
+    previewScript=$(create_preview_script_fzf)
     selected_item=$(printf "%s\n" "${menuList[@]}" | fzf \
           --prompt="search channel" \
           --preview="bash -c '$previewScript' -- {n}")
@@ -534,7 +527,7 @@ select_action() {
   local chosen_action
   local prompt="Select Action:"
   local header="Available Actions"
-  local items=("watch" "watch with friends" "download")
+  local items=("watch" "download" "watch with friends")
 
   if [[ "$use_rofi" == true ]]; then
     chosen_action=$(printf "%s\n" "${items[@]}" | rofi -dmenu -p "$prompt" -mesg "$header")
@@ -940,7 +933,7 @@ EOF
     
     if command -v chafa &>/dev/null; then
         img_path="$TMPDIR/thumb_$id.jpg"
-        [[ ! -f "$img_path" ]] && curl -fsSL "$thumbnail" -o "$img_path" 2>/dev/null
+        [[ ! -f "$img_path" ]] && curl -fsSL --compressed --http1.1 --keepalive-time 30 "$thumbnail" -o "$img_path" 2>/dev/null
         img_h=$((FZF_PREVIEW_LINES - 10))
         img_w=$((FZF_PREVIEW_COLUMNS - 4))
         img_h=$(( img_h < 10 ? 10 : img_h ))
