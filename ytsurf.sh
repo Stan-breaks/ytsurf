@@ -776,11 +776,7 @@ handle_history() {
     rm -rf "$TMPDIR/applications"
 
   else
-      [ ${#menu_list[@]} -eq 0 ] && {
-      send_notification "Error" "No results found for '$query'"
-      exit 0
-    }
-   selected_title=$(select_from_menu "${history_titles[@]}" "Watch history:" "$json_data" true)
+      selected_title=$(select_from_menu "${history_titles[@]}" "Watch history:" "$json_data" true)
   fi
 
   [ -z "$selected_title" ] && {
