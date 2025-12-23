@@ -528,7 +528,7 @@ select_action() {
   local chosen_action
   local prompt="Select Action:"
   local header="Available Actions"
-  local items=("watch" "download" "watch with friends")
+  local items=("watch" "download" "watch_with_friends")
 
   if [[ "$use_rofi" == true ]]; then
     chosen_action=$(printf "%s\n" "${items[@]}" | rofi -dmenu -p "$prompt" -mesg "$header")
@@ -540,7 +540,7 @@ select_action() {
 
   if [[ "$chosen_action" == "watch" ]]; then
     echo false
-  elif [[ "$chosen_action" == "watch with friends" ]];then
+  elif [[ "$chosen_action" == "watch_with_friends" ]];then
     player="syncplay"
     echo false
 
@@ -858,18 +858,9 @@ fetch_search_results() {
   local encoded_query
   encoded_query=$(printf '%s' "$search_query" | jq -sRr @uri)
 
-  if ! json_data=$(curl "https://www.youtube.com/results?search_query=${encoded_query}&sp=EgIQAQ%253D%253D&hl=en&gl=US" 2>/dev/null); then
-    echo "Error: Failed to fetch search results." >&2
-    return 1
-  fi
-
-  # Parse results
-  local parsed_data
-  parsed_data=$(echo "$json_data" |
-    sed -n '/var ytInitialData = {/,/};$/p' |
-    sed '1s/^.*var ytInitialData = //' |
-    sed '$s/;$//' |
-    jq -r "
+json_data=$(curl -s --compressed --http1.1 --keepalive-time 30 "https://www.youtube.com/results?search_query=${encoded_query}&sp=EgIQAQ%253D%253D&hl=en&gl=US" \
+    | sed -n 's/.*var ytInitialData = \(.*\);<\/script>.*/\1/p'\
+    | jq -r "
       [
         .. | objects |
         select(has(\"videoRenderer\")) |
@@ -885,14 +876,8 @@ fetch_search_results() {
       ] | .[:${limit}]
       " 2>/dev/null)
 
-  if [[ -z "$parsed_data" || "$parsed_data" == "null" ]]; then
-    echo "Error: Failed to parse search results." >&2
-    return 1
-  fi
-
-  # Cache results
-  echo "$parsed_data" >"$cache_file"
-  echo "$parsed_data"
+  echo "$json_data" >"$cache_file"
+  echo "$json_data"
 
 }
 
@@ -1059,7 +1044,7 @@ select_init(){
   local chosen_action
   local prompt="Select Action:"
   local header="Available Actions"
-  local items=("Search youtube" "Add subscription" "Open your feed" "View your history")
+  local items=("Search_youtube" "Add_subscription" "Open_your_feed" "View_your_history")
 
   if [[ "$use_rofi" == true ]]; then
     chosen_action=$(printf "%s\n" "${items[@]}" | rofi -dmenu -p "$prompt" -mesg "$header")
@@ -1069,13 +1054,13 @@ select_init(){
     chosen_action=$(printf "%s\n" "${items[@]}" | fzf --prompt="$prompt" --header="$header")
   fi
 
-  if [[ "$chosen_action" == "Add subscription" ]]; then
+  if [[ "$chosen_action" == "Add_subscription" ]]; then
     sub_mode="true"
-  elif [[ "$chosen_action" == "Open your feed" ]]; then
+  elif [[ "$chosen_action" == "Open_your_feed" ]]; then
     feed_mode="true"
-  elif [[ "$chosen_action" == "View your history" ]]; then
+  elif [[ "$chosen_action" == "View_your_history" ]]; then
     history_mode="true"
-  elif [[ "$chosen_action" == "Search youtube" ]]; then
+  elif [[ "$chosen_action" == "Search_youtube" ]]; then
     STATE="SEARCH"
   else
     send_notification "Error" "no selection made"
@@ -1086,7 +1071,7 @@ select_init(){
 # MAIN EXECUTION
 main() {
   STATE="SEARCH"
-  [[ "$history_mode" != "true" && "$sub_mode" != "true" && "$feed_mode" != "true" ]] && select_init
+  [[ "$history_mode" != "true" && "$sub_mode" != "true" && "$feed_mode" != "true" && -z "$query" ]] && select_init
   [ "$history_mode" == "true" ] && STATE="HISTORY"
   [ "$sub_mode" == "true" ] && STATE="SUB"
   while :; do
