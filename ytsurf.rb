@@ -3,7 +3,7 @@ class Ytsurf < Formula
   homepage ""
   url "https://github.com/Stan-breaks/ytsurf/archive/refs/tags/v3.0.5.zip"
   sha256 "8fb114e175214e9bf647914cf6eb080c549a48c6ca2fe2f1ed503a62ae1ea335"
-  version "3.0.6"
+  version "3.0.7"
   license "GPL-3.0"
   
   depends_on "bash"

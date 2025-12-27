@@ -5,7 +5,7 @@ set -u
 # CONSTANTS AND DEFAULTS
 #=============================================================================
 
-readonly SCRIPT_VERSION="3.0.6"
+readonly SCRIPT_VERSION="3.0.7"
 readonly SCRIPT_NAME="ytsurf"
 
 # Default configuration values
@@ -367,7 +367,7 @@ check_dependencies() {
 
   # Required dependencies
 
-  local required_deps=("yt-dlp" "mpv" "jq" "curl")
+  local required_deps=("yt-dlp" "mpv" "jq" "curl" "perl")
   [ "$player" == "syncplay" ] && required_deps+=("syncplay")
 
   for dep in "${required_deps[@]}"; do
@@ -858,8 +858,8 @@ fetch_search_results() {
   local encoded_query
   encoded_query=$(printf '%s' "$search_query" | jq -sRr @uri)
 
-json_data=$(curl -s --compressed --http1.1 --keepalive-time 30 "https://www.youtube.com/results?search_query=${encoded_query}&sp=EgIQAQ%253D%253D&hl=en&gl=US" \
-    | sed -n 's/.*var ytInitialData = \(.*\);<\/script>.*/\1/p'\
+  json_data=$(curl -s --compressed --http1.1 --keepalive-time 30 "https://www.youtube.com/results?search_query=${encoded_query}&sp=EgIQAQ%253D%253D&hl=en&gl=US" \
+    | perl -0777 -ne 'print $1 if /var ytInitialData = (.*?);\s*<\/script>/s'\
     | jq -r "
       [
         .. | objects |
