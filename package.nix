@@ -34,6 +34,7 @@ stdenvNoCC.mkDerivation {
           fzf
           chafa
           ffmpeg
+          perl
         ]
       }
 

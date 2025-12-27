@@ -11,6 +11,7 @@ class Ytsurf < Formula
   depends_on "jq"
   depends_on "curl"
   depends_on "mpv"
+  depends_on "perl"
   depends_on "fzf"
   depends_on "chafa"
   depends_on "ffmpeg"
