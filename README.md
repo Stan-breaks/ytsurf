@@ -12,7 +12,7 @@ YouTube in your terminal. Clean and distraction-free.
 
 
 
-## ✨ Features
+## Features
 
 - Syncplay support – watch videos together in sync
 - Audio-only playback & downloads
