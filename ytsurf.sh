@@ -5,7 +5,7 @@ set -u
 # CONSTANTS AND DEFAULTS
 #=============================================================================
 
-readonly SCRIPT_VERSION="3.0.7"
+readonly SCRIPT_VERSION="3.0.8"
 readonly SCRIPT_NAME="ytsurf"
 
 # Default configuration values
@@ -60,8 +60,15 @@ TMPDIR=""
 #=============================================================================
 
 fetch_feed(){
-   mapfile -t subs < "$SUB_FILE"
-   printf "%s\n" "${subs[@]}" | shuf | xargs -P 6 -I{} bash -c 'process_channel "$@"' _ {} 2>/dev/null | jq -c '.[]'| shuf | head -n "$limit" | jq -s '.'
+   cacheFeed="$CACHE_DIR/feed.json"
+   if [[ -f "$cacheFeed" ]]&& (( $(date +%s) - $(stat -c "%Y" "$cacheFeed") < 1800 )); then
+     cat "$cacheFeed"
+   else
+     mapfile -t subs < "$SUB_FILE"
+     jsonData=$(printf "%s\n" "${subs[@]}" | shuf | xargs -P 6 -I{} bash -c 'process_channel "$@"' _ {} 2>/dev/null | jq -c '.[]'| shuf | head -n "$limit" | jq -s '.')
+     echo "$jsonData" > "$cacheFeed"
+     echo "$jsonData"
+   fi
 }
 
 process_channel(){
@@ -93,7 +100,7 @@ search_channel(){
 cacheKey=$(echo -n "$query channel" | sha256sum | cut -d' ' -f1)
 cacheFile="$CACHE_DIR/$cacheKey"
 
-if [[ -f "$cacheFile" && $(find "$cacheFile" -mmin -10 2>/dev/null) ]]; then
+if [[ -f "$cacheFile" ]] && (( $(date +%s) - $(stat -c "%Y" "$cacheFile") < 600 )); then
     cat "$cacheFile"
 else
     local jsonData
