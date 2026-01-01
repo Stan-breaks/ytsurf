@@ -35,7 +35,7 @@ YouTube in your terminal. Clean and distraction-free.
 
 
 
-## 📦 Installation
+## Installation
 
 ### Arch Linux (AUR)
 
@@ -63,7 +63,7 @@ chmod +x ~/.local/bin/ytsurf
 Make sure `~/.local/bin` is in your **PATH**.
 
 
-## 🔧 Dependencies
+##  Dependencies
 
 * **Required:** `bash`, `yt-dlp`, `jq`, `curl`, `mpv`, `fzf`, `chafa`, `ffmpeg`
 * **Optional:** `rofi`, `sentaku`, `syncplay`
@@ -75,7 +75,7 @@ sudo pacman -S yt-dlp jq curl mpv fzf chafa rofi ffmpeg
 ```
 
 
-## 🚀 Usage
+##  Usage
 
 ```bash
 USAGE:
@@ -107,7 +107,7 @@ EXAMPLES:
 Run `ytsurf` without arguments to enter interactive mode.
 
 
-## ⚙️ Configuration
+##  Configuration
 
 Defaults check for default config in `~/.config/ytsurf/config`.
 CLI flags always override config values.
@@ -127,7 +127,7 @@ audio_only=true
 download_dir="$HOME/Videos/YouTube"
 ```
 
-## 🛠️ Troubleshooting
+##  Troubleshooting
 MPV doesn't play the selected video
 
 Some systems have mpv configured to prefer youtube-dl instead of yt-dlp, which causes ytsurf to show “playing…” without actually starting playback.
@@ -147,18 +147,18 @@ sudo ln -s /usr/bin/yt-dlp /usr/local/bin/youtube-dl
 MPV will now correctly pick up yt-dlp for streaming.
 
 
-## 🤝 Contributing
+##  Contributing
 
 Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md).
 Check out [FUTURE_FEATURES.md](FUTURE_FEATURES.md) for upcoming ideas.
 
 
-## 📜 License
+##  License
 
 Released under the [GNU General Public License v3.0](LICENSE).
 
 
-## ⭐ Star History
+##  Star History
 
 <a href="https://www.star-history.com/#Stan-breaks/ytsurf&Date">
  <picture>
