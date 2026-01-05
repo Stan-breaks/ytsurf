@@ -9,6 +9,7 @@
   fzf,
   chafa,
   ffmpeg,
+  perl,
 }:
 stdenvNoCC.mkDerivation {
   pname = "ytsurf";
