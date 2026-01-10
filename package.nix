@@ -1,21 +1,21 @@
 {
-  lib,
-  stdenvNoCC,
-  yt-dlp,
-  jq,
+  chafa,
   curl,
+  ffmpeg,
+  fzf,
+  jq,
+  lib,
   makeWrapper,
   mpv,
-  fzf,
-  chafa,
-  ffmpeg,
   perl,
+  stdenvNoCC,
+  yt-dlp,
 }:
 stdenvNoCC.mkDerivation {
   pname = "ytsurf";
   version = "3.0.8"; # update when you tag releases
 
-  nativeBuildInputs = [ makeWrapper ];
+  nativeBuildInputs = [makeWrapper];
 
   dontUnpack = true;
   dontConfigure = true;
@@ -27,17 +27,17 @@ stdenvNoCC.mkDerivation {
     install -Dm777 ${./ytsurf.sh} $out/bin/ytsurf
     wrapProgram $out/bin/ytsurf \
       --prefix PATH : ${
-        lib.makeBinPath [
-          yt-dlp
-          jq
-          curl
-          mpv
-          fzf
-          chafa
-          ffmpeg
-          perl
-        ]
-      }
+      lib.makeBinPath [
+        chafa
+        curl
+        ffmpeg
+        fzf
+        jq
+        mpv
+        perl
+        yt-dlp
+      ]
+    }
 
     runHook postInstall
   '';
