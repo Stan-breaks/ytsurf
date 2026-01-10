@@ -52,6 +52,39 @@ brew tap stan-breaks/ytsurf https://github.com/stan-breaks/ytsurf
 brew install stan-breaks/ytsurf/ytsurf
 ```
 
+### NixOS (system-wide, flakes)
+
+In your flake.nix (system config)
+```nix
+
+{
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    ytsurf.url = "github:Stan-breaks/ytsurf";
+  };
+
+  outputs = { self, nixpkgs, ytsurf, ... }:
+  let
+    system = "x86_64-linux";
+  in {
+    nixosConfigurations.thanaros = nixpkgs.lib.nixosSystem {
+      inherit system;
+      modules = [
+        ({ pkgs, ... }: {
+          nixpkgs.overlays = [
+            ytsurf.overlays.default
+          ];
+
+          environment.systemPackages = with pkgs; [
+            ytsurf
+          ];
+        })
+      ];
+    };
+  };
+}
+```
+
 ### Manual Installation
 
 ```bash
