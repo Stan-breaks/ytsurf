@@ -1215,18 +1215,24 @@ handle_playlist_selection() {
 
 fetch_playlist_videos() {
 	local playlist_id="$1"
-	local video_urls=()
+	local video_data=()
 
-	# Use yt-dlp to get video IDs
-	local video_ids
-	video_ids=$(yt-dlp --flat-playlist --print-json "https://www.youtube.com/playlist?list=$playlist_id" 2>/dev/null | jq -r '.id' | head -50) # limit to 50
+	# Use yt-dlp to get video IDs and titles
+	local json_data
+	json_data=$(yt-dlp --flat-playlist --print-json "https://www.youtube.com/playlist?list=$playlist_id" 2>/dev/null | head -50) # limit to 50
 
-	# Construct URLs
-	while read -r vid; do
-		video_urls+=("https://www.youtube.com/watch?v=$vid")
-	done <<<"$video_ids"
+	# Parse JSON and construct array of "title|url"
+	while read -r line; do
+		local title id
+		title=$(echo "$line" | jq -r '.title' 2>/dev/null)
+		id=$(echo "$line" | jq -r '.id' 2>/dev/null)
+		if [[ -n "$title" && -n "$id" ]]; then
+			video_data+=("$title|https://www.youtube.com/watch?v=$id")
+		fi
+	done <<<"$json_data"
 
-	echo "${video_urls[@]}"
+	# Output as newline-separated
+	printf '%s\n' "${video_data[@]}"
 }
 
 perform_playlist_action() {
@@ -1259,15 +1265,25 @@ perform_playlist_action() {
 
 	if [[ "$chosen_action" == "Play sequentially" ]]; then
 		send_notification "Ytsurf" "Playing playlist $selected_title sequentially"
-		local video_urls
-		mapfile -t video_urls < <(fetch_playlist_videos "$playlist_id")
-		if [[ ${#video_urls[@]} -eq 0 ]]; then
+		local video_data
+		mapfile -t video_data < <(fetch_playlist_videos "$playlist_id")
+		if [[ ${#video_data[@]} -eq 0 ]]; then
 			send_notification "Error" "No videos found in playlist"
 			exit 1
 		fi
 		local mpv_args=(--really-quiet)
 		[ "$audio_only" == "true" ] && mpv_args+=(--no-video)
-		"$player" "${mpv_args[@]}" "${video_urls[@]}"
+		# Play each video one by one, showing current song
+		for item in "${video_data[@]}"; do
+			IFS='|' read -r title url <<<"$item"
+			send_notification "Ytsurf" "Now playing: $title"
+			"$player" "${mpv_args[@]}" "$url"
+			# Check if user wants to continue (mpv exits with 0 normally)
+			if [[ $? -ne 0 ]]; then
+				send_notification "Playback stopped"
+				break
+			fi
+		done
 	elif [[ "$chosen_action" == "Select video" ]]; then
 		# Fetch videos and show menu
 		local video_json
