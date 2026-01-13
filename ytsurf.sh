@@ -962,15 +962,15 @@ fetch_playlist_results() {
 		sed '$s/;$//' |
 		jq -r "
       [
-        .. | objects |
-        select(has(\"playlistRenderer\")) |
-        .playlistRenderer | {
-          title: .title.simpleText,
-          id: .playlistId,
-          author: (.longBylineText.runs[0].text // \"Unknown\"),
-          videoCount: .videoCount,
-          thumbnail: (.thumbnails | sort_by(.width) | last.url),
-          published: (.publishedTimeText.simpleText // \"Unknown\")
+        .contents.twoColumnSearchResultsRenderer.primaryContents.sectionListRenderer.contents[0].itemSectionRenderer.contents[] |
+        select(.lockupViewModel.contentType == \"LOCKUP_CONTENT_TYPE_PLAYLIST\") |
+        .lockupViewModel | {
+          title: .metadata.lockupMetadataViewModel.title.content,
+          id: .contentId,
+          author: \"Unknown\",
+          videoCount: 0,
+          thumbnail: (.contentImage.collectionThumbnailViewModel.primaryThumbnail.thumbnailViewModel.image.sources[0].url // \"\"),
+          published: \"Unknown\"
         }
       ] | .[:${limit}]
       " 2>/dev/null)
