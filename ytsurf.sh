@@ -200,13 +200,13 @@ command -v notify-send >/dev/null 2>&1 && notify="true" || notify="false" # chec
 # Send notications
 send_notification() {
 	if [ "$use_rofi" = false ] && [ "$use_sentaku" = false ]; then
-		[ -z "$2" ] && printf "\33[2K\r\033[1;34m%s\n\033[0m" "$1" && return
-		[ -n "$2" ] && printf "\33[2K\r\033[1;34m%s - %s\n\033[0m" "$1" "$2" && return
+		[ -z "${2:-}" ] && printf "\33[2K\r\033[1;34m%s\n\033[0m" "$1" && return
+		[ -n "${2:-}" ] && printf "\33[2K\r\033[1;34m%s - %s\n\033[0m" "$1" "${2:-}" && return
 	fi
 	timeout=5000
 	if [ "$notify" = "true" ]; then
-		[ -z "${3:-}" ] && notify-send "$1" "$2" -t "$timeout"
-		[ -n "${3:-}" ] && notify-send "$1" "$2" -t "$timeout" -i "$3"
+		[ -z "${3:-}" ] && notify-send "$1" "${2:-}" -t "$timeout"
+		[ -n "${3:-}" ] && notify-send "$1" "${2:-}" -t "$timeout" -i "$3"
 	fi
 }
 
