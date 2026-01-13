@@ -18,6 +18,7 @@ DEFAULT_HISTORY_MODE=false
 DEFAULT_SUB_MODE=false
 DEFAULT_FEED_MODE=false
 DEFAULT_PLAYLIST_MODE=false
+DEFAULT_PLAYLIST_DOWNLOAD_LIMIT=20
 DEFAULT_FORMAT_SELECTION=false
 DEFAULT_MAX_HISTORY_ENTRIES=100
 DEFAULT_NOTIFY=true
@@ -44,6 +45,7 @@ history_mode="$DEFAULT_HISTORY_MODE"
 sub_mode="$DEFAULT_SUB_MODE"
 feed_mode="$DEFAULT_FEED_MODE"
 playlist_mode="$DEFAULT_PLAYLIST_MODE"
+playlist_download_limit="$DEFAULT_PLAYLIST_DOWNLOAD_LIMIT"
 format_selection="$DEFAULT_FORMAT_SELECTION"
 download_dir="${XDG_DOWNLOAD_DIR:-$HOME/Downloads}"
 max_history_entries="$DEFAULT_MAX_HISTORY_ENTRIES"
@@ -330,10 +332,11 @@ OPTIONS:
   --copy-url      Copy or display the video link
 
  CONFIG:
-   $CONFIG_FILE can contain default options like:
+    $CONFIG_FILE can contain default options like:
      limit=5
      audio_only=true
      playlist_mode=true
+     playlist_download_limit=20
      use_rofi=true
 
 EXAMPLES:
@@ -385,6 +388,7 @@ configuration() {
 #limit=10
 #audio_only=false
 #playlist_mode=false
+#playlist_download_limit=20
 #use_rofi=false
 #use_sentaku=false
 #download_mode=false
@@ -1232,6 +1236,13 @@ perform_playlist_action() {
 	local playlist_videoCount="$4"
 	local playlist_thumbnail="$5"
 
+	if [[ "$download_mode" = true ]]; then
+		download_playlist "$playlist_id" "$selected_title"
+		STATE="SEARCH"
+		query=""
+		return
+	fi
+
 	# Prompt for action: Play sequentially or Select video
 	local chosen_action
 	local prompt="Playlist Action:"
@@ -1295,6 +1306,58 @@ perform_playlist_action() {
 
 	STATE="SEARCH"
 	query=""
+}
+
+download_playlist() {
+	local playlist_id="$1"
+	local selected_title="$2"
+	local limit="${playlist_download_limit:-20}" # Default 20 videos
+
+	# Use configured download directory
+	mkdir -p "$download_dir"
+
+	# Check playlist size
+	local video_count
+	video_count=$(yt-dlp --flat-playlist --print-json "https://www.youtube.com/playlist?list=$playlist_id" 2>/dev/null | jq -r '.id' | wc -l)
+
+	if [[ "$video_count" -gt "$limit" ]]; then
+		# Ask for confirmation to download full playlist
+		if ! confirm_large_playlist "$video_count"; then
+			send_notification "Download cancelled by user"
+			return 1
+		fi
+		# If confirmed, download all videos (remove limit)
+		limit="$video_count"
+	fi
+
+	local yt_dlp_args=(
+		-o "$download_dir/%(playlist_title)s/%(title)s [%(id)s].%(ext)s"
+		--yes-playlist
+		--playlist-items "1-$limit"
+	)
+
+	if [[ "$audio_only" = true ]]; then
+		yt_dlp_args+=(-x --audio-format mp3)
+	else
+		yt_dlp_args+=(--remux-video mp4)
+	fi
+
+	send_notification "Ytsurf" "Downloading $limit videos from playlist: $selected_title"
+	yt-dlp "${yt_dlp_args[@]}" "https://www.youtube.com/playlist?list=$playlist_id"
+}
+
+confirm_large_playlist() {
+	local video_count="$1"
+	local response
+
+	if [[ "$use_rofi" == true ]]; then
+		response=$(echo -e "No\nYes" | rofi -dmenu -p "Download all $video_count videos?" -mesg "Playlist exceeds limit. Proceed with full download?")
+	else
+		echo "Playlist has $video_count videos. Download all? (y/N)"
+		read -r response
+	fi
+
+	[[ "$response" =~ ^[Yy]$ ]]
 }
 
 select_init() {
