@@ -28,7 +28,7 @@ readonly CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/$SCRIPT_NAME"
 readonly HISTORY_FILE="$CACHE_DIR/history.json"
 readonly CONFIG_FILE="$CONFIG_DIR/config"
 readonly SUB_FILE="$CONFIG_DIR/sub.txt"
-readonly YTSURF_SOCKET="${TMPDIR:-/tmp}/ytsurf.sock"
+readonly YTSURF_SOCKET="${TMPDIR:-/tmp}/ytsurf-mpv-$$.sock"
 
 #=============================================================================
 # GLOBAL VARIABLES
@@ -687,7 +687,7 @@ play_video() {
   case "$player" in
   mpv)
 
-    player="$player --really-quiet --input-ipc-server=$YTSURF_SOCKET"
+    player="$player --keep-open=no --really-quiet --input-ipc-server=$YTSURF_SOCKET"
     [ "$audio_only" == "true" ] && player="$player --no-video"
     [ -n "$format_code" ] && player="$player --ytdl-format=$format_code"
   
@@ -841,7 +841,7 @@ get_search_query() {
     if [[ "$use_rofi" = true ]]; then
       query=$(rofi -dmenu -p "Enter YouTube search:")
     else
-      read -rp "Enter YouTube search: " query
+      read -rp "Enter YouTube search(empty to exit): " query
     fi
   fi
 
