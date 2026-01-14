@@ -28,6 +28,7 @@ readonly CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/$SCRIPT_NAME"
 readonly HISTORY_FILE="$CACHE_DIR/history.json"
 readonly CONFIG_FILE="$CONFIG_DIR/config"
 readonly SUB_FILE="$CONFIG_DIR/sub.txt"
+readonly YTSURF_SOCKET="${TMPDIR:-/tmp}/ytsurf.sock"
 
 #=============================================================================
 # GLOBAL VARIABLES
@@ -685,10 +686,14 @@ play_video() {
 
   case "$player" in
   mpv)
-    local mpv_args=(--really-quiet)
-    [ "$audio_only" == "true" ] && mpv_args+=(--no-video)
-    [ -n "$format_code" ] && mpv_args+=(--ytdl-format="$format_code")
-    "$player" "${mpv_args[@]}" "$video_url"
+
+    player="$player --really-quiet --input-ipc-server=$YTSURF_SOCKET"
+    [ "$audio_only" == "true" ] && player="$player --no-video"
+    [ -n "$format_code" ] && player="$player --ytdl-format=$format_code"
+  
+    player="$player $video_url"
+    eval "$player"
+    player="mpv"
     ;;
   syncplay)
     [ "$audio_only" == "true" ] && {
