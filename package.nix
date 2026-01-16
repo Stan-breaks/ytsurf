@@ -13,7 +13,7 @@
 }:
 stdenvNoCC.mkDerivation {
   pname = "ytsurf";
-  version = "3.0.8"; # update when you tag releases
+  version = "3.0.9"; # update when you tag releases
 
   nativeBuildInputs = [makeWrapper];
 
