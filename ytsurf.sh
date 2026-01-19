@@ -5,7 +5,7 @@ set -u
 # CONSTANTS AND DEFAULTS
 #=============================================================================
 
-readonly SCRIPT_VERSION="3.0.9"
+readonly SCRIPT_VERSION="3.0.10"
 readonly SCRIPT_NAME="ytsurf"
 
 # Default configuration values
@@ -871,7 +871,7 @@ fetch_search_results() {
 
   json_data=$(curl -s --compressed --http1.1 --keepalive-time 30 "https://www.youtube.com/results?search_query=${encoded_query}&sp=EgIQAQ%253D%253D&hl=en&gl=US" \
     | perl -0777 -ne 'print $1 if /var ytInitialData = (.*?);\s*<\/script>/s'\
-    | jq -r "
+    | jq -r --argjson limit "$limit" "
       [
         .. | objects |
         select(has(\"videoRenderer\")) |
@@ -884,7 +884,7 @@ fetch_search_results() {
           views: .viewCountText.simpleText,
           thumbnail: (.thumbnail.thumbnails | sort_by(.width) | last.url)
         }
-      ] | .[:${limit}]
+      ] | .[:$limit]
       " 2>/dev/null)
 
   echo "$json_data" >"$cache_file"
