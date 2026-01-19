@@ -689,7 +689,7 @@ play_video() {
 
     player="$player --keep-open=no --really-quiet --input-ipc-server=$YTSURF_SOCKET"
     [ "$audio_only" == "true" ] && player="$player --no-video"
-    [ -n "$format_code" ] && player="$player --ytdl-format=$format_code"
+    [ -n "$format_code" ] && player="$player --ytdl-format=\"$format_code\""
   
     player="$player $video_url"
     eval "$player"
