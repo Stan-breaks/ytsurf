@@ -339,7 +339,6 @@ edit_config() {
 # configuration
 configuration() {
   mkdir -p "$CACHE_DIR" "$CONFIG_DIR"
-  [ -f "$history_file" ] || echo "[]" >"$history_file"
   [ -f "$SUB_FILE" ] || touch "$SUB_FILE"
   # shellcheck source=/home/stan/.config/ytsurf/config
 
@@ -362,6 +361,7 @@ EOF
   fi
   # shellcheck disable=SC1090
   [ -f "$CONFIG_FILE" ] && source "$CONFIG_FILE"
+  [ -f "$history_file" ] || echo "[]" >"$history_file"
 }
 
 # Setup cleanup trap
