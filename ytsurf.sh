@@ -25,7 +25,6 @@ DEFAULT_COPY_MODE=false
 # System directories
 readonly CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/$SCRIPT_NAME"
 readonly CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/$SCRIPT_NAME"
-readonly HISTORY_FILE="$CACHE_DIR/history.json"
 readonly CONFIG_FILE="$CONFIG_DIR/config"
 readonly SUB_FILE="$CONFIG_DIR/sub.txt"
 readonly YTSURF_SOCKET="${TMPDIR:-/tmp}/ytsurf-mpv-$$.sock"
@@ -45,6 +44,7 @@ sub_mode="$DEFAULT_SUB_MODE"
 feed_mode="$DEFAULT_FEED_MODE"
 format_selection="$DEFAULT_FORMAT_SELECTION"
 download_dir="${XDG_DOWNLOAD_DIR:-$HOME/Downloads}"
+history_file="$CACHE_DIR/history.json"
 max_history_entries="$DEFAULT_MAX_HISTORY_ENTRIES"
 notify="$DEFAULT_NOTIFY"
 editor="nvim"
@@ -339,7 +339,7 @@ edit_config() {
 # configuration
 configuration() {
   mkdir -p "$CACHE_DIR" "$CONFIG_DIR"
-  [ -f "$HISTORY_FILE" ] || echo "[]" >"$HISTORY_FILE"
+  [ -f "$history_file" ] || echo "[]" >"$history_file"
   [ -f "$SUB_FILE" ] || touch "$SUB_FILE"
   # shellcheck source=/home/stan/.config/ytsurf/config
 
@@ -353,6 +353,7 @@ configuration() {
 #history_mode=false
 #format_selection=false
 #download_dir="$HOME/Downloads"
+#history_file=="$HOME/.cache/ytsurf/history.json"
 #max_history_entries=20
 #notify=true
 #editor="nvim"
@@ -723,8 +724,8 @@ add_to_history() {
   tmp_history="$(mktemp)"
 
   # Validate existing JSON
-  if ! jq empty "$HISTORY_FILE" 2>/dev/null; then
-    echo "[]" >"$HISTORY_FILE"
+  if ! jq empty "$history_file" 2>/dev/null; then
+    echo "[]" >"$history_file"
   fi
 
   # Create new entry and merge with existing history
@@ -737,7 +738,7 @@ add_to_history() {
     --arg published "$video_published" \
     --arg thumbnail "$video_thumbnail" \
     --argjson max_entries "$max_history_entries" \
-    --slurpfile existing "$HISTORY_FILE" \
+    --slurpfile existing "$history_file" \
     '
         {
             title: $title,
@@ -754,17 +755,17 @@ add_to_history() {
         ' >"$tmp_history"
 
   # Atomic move
-  mv "$tmp_history" "$HISTORY_FILE"
+  mv "$tmp_history" "$history_file"
 }
 
 handle_history() {
-  [ -z "$HISTORY_FILE" ] && {
+  [ -z "$history_file" ] && {
     send_notification "Error" "No viewing history found."
     exit 1
   }
 
   local json_data
-  if ! json_data=$(cat "$HISTORY_FILE" 2>/dev/null); then
+  if ! json_data=$(cat "$history_file" 2>/dev/null); then
     send_notification "Error" "Could not read history file." >&2
     exit 1
   fi
