@@ -68,8 +68,15 @@ fetch_feed(){
    if [[ -f "$cacheFeed" ]]&& (( $(date +%s) - $(stat -c "%Y" "$cacheFeed") < 1800 )); then
      cat "$cacheFeed"
    else
-     mapfile -t subs < "$SUB_FILE"
-     jsonData=$(printf "%s\n" "${subs[@]}" | shuf | xargs -P 6 -I{} bash -c 'process_channel "$@"' _ {} 2>/dev/null | jq -c '.[]'| shuf | head -n "$limit" | jq -s '.')
+     mapfile -t subs < <(jq -r '.[] | "\(.title),\(.channelName)"' "$SUB_FILE")
+     jsonData=$(printf "%s\n" "${subs[@]}" \
+     | shuf \
+     | head -n 5 \
+     | xargs -P 6 -I{} bash -c 'process_channel "$@"' _ {} 2>/dev/null \
+     | jq -c '.[]'\
+     | shuf \
+     | head -n "$limit" \
+     | jq -s '.')
      echo "$jsonData" > "$cacheFeed"
      echo "$jsonData"
    fi
