@@ -26,7 +26,7 @@ DEFAULT_COPY_MODE=false
 readonly CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/$SCRIPT_NAME"
 readonly CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/$SCRIPT_NAME"
 readonly CONFIG_FILE="$CONFIG_DIR/config"
-readonly SUB_FILE="$CONFIG_DIR/sub.txt"
+readonly SUB_FILE="$CONFIG_DIR/sub.json"
 readonly YTSURF_SOCKET="${TMPDIR:-/tmp}/ytsurf-mpv-$$.sock"
 
 #=============================================================================
@@ -41,6 +41,9 @@ use_sentaku="$DEFAULT_USE_SENTAKU"
 download_mode="$DEFAULT_DOWNLOAD_MODE"
 history_mode="$DEFAULT_HISTORY_MODE"
 sub_mode="$DEFAULT_SUB_MODE"
+add_sub=false
+remove_sub=false
+import_subs=false
 feed_mode="$DEFAULT_FEED_MODE"
 format_selection="$DEFAULT_FORMAT_SELECTION"
 download_dir="${XDG_DOWNLOAD_DIR:-$HOME/Downloads}"
@@ -283,7 +286,9 @@ OPTIONS:
   --format        Interactively choose format/resolution
   --rofi          Use rofi instead of fzf for menus
   --syncplay      Watch youtube with friend from the terminal
-  --subscribe, -s Add a channel to the subs.txt
+  --subscribe, -s Add a channel to subscriptions locally
+  --unsubscribe   Remove a channel to subscriptions locally
+  --import-subs   Import subscriptions from youtube
   --feed,-F       View videos from your feed
   --sentaku       Use sentaku instead of fzf or rofi(for system that can't compile go)
   --history       Show and replay from viewing history
@@ -339,7 +344,9 @@ edit_config() {
 # configuration
 configuration() {
   mkdir -p "$CACHE_DIR" "$CONFIG_DIR"
-  [ -f "$SUB_FILE" ] || touch "$SUB_FILE"
+
+  [ -f "$SUB_FILE" ] || echo "[]" > "$SUB_FILE"
+
   # shellcheck source=/home/stan/.config/ytsurf/config
 
   if [ ! -f "$CONFIG_FILE" ]; then
@@ -449,6 +456,17 @@ parse_arguments() {
       ;;
     --subscribe| -S)
       sub_mode=true
+      add_sub=true
+      shift 
+      ;;
+     --unsubscribe)
+      sub_mode=true
+      remove_sub=true
+      shift 
+      ;;   
+    --import-subs)
+      sub_mode=true
+      import_subs=true
       shift 
       ;;
     --copy-url)
@@ -483,8 +501,93 @@ parse_arguments() {
 # Subscribe
 #=============================================================================
 
+
+manage_subscriptions(){
+  if [[ "$import_subs" == true ]];then
+    sync_subs
+  elif [[ "$add_sub" == true  ]];then
+    subscribe
+  elif [[ "$remove_sub" == true ]]; then
+    unsubscribe
+  else
+    local chosen_action
+    local prompt="Select Action:"
+    local header="Available Actions"
+    local items=("Sync_Subscriptions" "Add_Subscription" "Remove_Subscription")
+
+    if [[ "$use_rofi" == true ]]; then
+      chosen_action=$(printf "%s\n" "${items[@]}" | rofi -dmenu -p "$prompt" -mesg "$header")
+    elif [[ "$use_sentaku" == true ]]; then
+      chosen_action=$(printf "%s\n" "${items[@]}" | sentaku)
+    else
+      chosen_action=$(printf "%s\n" "${items[@]}" | fzf --prompt="$prompt" --header="$header")
+    fi
+
+    if [[ "$chosen_action" == "Sync_Subscriptions" ]];then
+      sync_subs
+    elif [[ "$chosen_action" == "Add_Subscription" ]];then
+      subscribe
+    else
+      unsubscribe
+    fi
+  fi
+
+  STATE=EXIT;
+}
+
+sync_subs(){
+  local chosen_action
+  local prompt="Select Action:"
+  local header="This is gonna overwrite your existing subs. Continue?"
+  local items=("Yes" "No")
+  if [[ "$use_rofi" == true ]]; then
+    chosen_action=$(printf "%s\n" "${items[@]}" | rofi -dmenu -p "$prompt" -mesg "$header")
+  elif [[ "$use_sentaku" == true ]]; then
+    chosen_action=$(printf "%s\n" "${items[@]}" | sentaku)
+  else
+    chosen_action=$(printf "%s\n" "${items[@]}" | fzf --prompt="$prompt" --header="$header")
+  fi
+
+  if [[ "$chosen_action" == "Yes" ]]; then
+    prompt="Select Broswer:"
+    header="Select a broswer where your youtube has be logged in"
+    items=("brave" "chrome" "chromium" "edge" "firefox" "opera" "safari" "vivaldi" "whale")
+    if [[ "$use_rofi" == true ]]; then
+      chosen_action=$(printf "%s\n" "${items[@]}" | rofi -dmenu -p "$prompt" -mesg "$header")
+    elif [[ "$use_sentaku" == true ]]; then
+      chosen_action=$(printf "%s\n" "${items[@]}" | sentaku)
+    else
+      chosen_action=$(printf "%s\n" "${items[@]}" | fzf --prompt="$prompt" --header="$header")
+    fi
+    if  json_data=$(yt-dlp --cookies-from-browser "$chosen_action" --flat-playlist  https://www.youtube.com/feed/channels -J);then
+      echo "$json_data" | jq -r '.entries
+      | map({
+             channelId:.channel_id,
+             channelName:.uploader_id,
+             title:.title,
+             thumbnail:("https:" + .thumbnails[0].url),
+             subscribers: (
+                 .channel_follower_count
+                 | if . >= 1000000 then (. / 1000000 | tostring + "M")
+                   elif . >= 1000 then (. / 1000 | tostring + "K")
+                   else tostring
+                   end
+                  )
+           })' > "$SUB_FILE"
+      send_notification "ytsurf" "Subs synced"
+    else
+      send_notification "Error" "Syncing failed"
+    fi
+  else 
+    send_notification "Error" "Syncing cancel"
+  fi
+
+  exit 0
+
+}
+
 subscribe(){
-  get_search_query
+ get_search_query
   jsonData=$(search_channel)
   export jsonData TMPDIR
   menuList=()
@@ -515,19 +618,87 @@ subscribe(){
       fi
   done
   [[ "$idx" -eq -1 ]] && exit 0
-  name=$(echo "$jsonData" | jq -r ".[$idx].channelName")
-  line="$selected_item,$name"
 
-  if ! grep -Fxq "$line" "$SUB_FILE"; then
-    echo "$line" >> "$SUB_FILE"
-    send_notification "$SCRIPT_NAME" "Subscribed to $name"
-  else
-    send_notification "$SCRIPT_NAME" "Aleardy Subscribed to $selected_item"
+  local tmp_sub
+  tmp_sub="$(mktemp)"
+
+  if ! jq empty "$SUB_FILE" 2>/dev/null; then
+     echo "[]" >"$SUB_FILE"
   fi
+  
+  entry=$(echo "$jsonData" | jq -r ".[$idx]")
+  channelId=$(echo "$entry" | jq -r '.channelId')
+
+  jq -n \
+    --argjson new_entry "$entry" \
+    --slurpfile existing "$SUB_FILE" \
+    --arg channelId "$channelId" \
+    '
+      [$new_entry] +
+      ($existing[0] | map(select(.channelId != $channelId)))
+    ' >"$tmp_sub"
+
+  mv "$tmp_sub" "$SUB_FILE"
+
   query=""
-  STATE=EXIT;
 }
 
+unsubscribe(){
+
+  if ! jq empty "$SUB_FILE" 2>/dev/null; then
+    send_notification "Error" "No subscriptions found."
+    exit 1
+  fi
+  if jq -e 'length == 0' "$SUB_FILE" >/dev/null 2>&1; then
+    send_notification "Error" "No subscriptions to unsubscribe."
+    exit 0
+  fi
+
+  jsonData=$(cat "$SUB_FILE")
+
+  export jsonData TMPDIR
+  menuList=()
+  mapfile -t menuList < <(echo "$jsonData" | jq -r '.[].title' 2>/dev/null)
+
+  if [[ "$use_rofi" == true ]];then
+    create_desktop_entries_channel 
+    selected_item=$(select_with_rofi_drun)
+    rm -rf "$TMPDIR/applications"
+  elif [[ "$use_sentaku" == true ]];then
+    selected_item=$(printf "%s\n" "${menu_items[@]}" | sed 's/ /␣/g' | sentaku)
+    selected_item=${selected_item//␣/ }
+  else
+    previewScript=$(create_preview_script_fzf_channel)
+    selected_item=$(printf "%s\n" "${menuList[@]}" | fzf \
+          --prompt="search channel" \
+          --preview="bash -c '$previewScript' -- {n}")
+  fi
+  [ -n "$selected_item" ] || {
+    send_notification "Error" "No selection made."
+    exit 1
+  }
+  idx=-1
+  for i in "${!menuList[@]}"; do
+      if [[ "${menuList[$i]}" == "$selected_item" ]]; then
+          idx=$i
+          break
+      fi
+  done
+  [[ "$idx" -eq -1 ]] && exit 0
+  local tmp_sub
+  tmp_sub="$(mktemp)"
+
+  entry=$(echo "$jsonData" | jq -r ".[$idx]")
+  channelId=$(echo "$entry" | jq -r ".channelId")
+  jq -n --arg channelId "$channelId"\
+     --slurpfile existing "$SUB_FILE" \
+    '
+    ($existing[0] | map(select(.channelId != $channelId)))
+    ' >"$tmp_sub"
+
+  mv "$tmp_sub" "$SUB_FILE"
+
+}
 #=============================================================================
 # ACTION SELECTION
 #=============================================================================
@@ -724,7 +895,8 @@ add_to_history() {
   tmp_history="$(mktemp)"
 
   # Validate existing JSON
-  if ! jq empty "$history_file" 2>/dev/null; then
+  #
+  if cat "$history_file" | jq empty 2>/dev/null; then
     echo "[]" >"$history_file"
   fi
 
@@ -1056,7 +1228,7 @@ select_init(){
   local chosen_action
   local prompt="Select Action:"
   local header="Available Actions"
-  local items=("Search_youtube" "Add_subscription" "Open_your_feed" "View_your_history")
+  local items=("Search_youtube" "Manage_subscriptions" "Open_your_feed" "View_your_history")
 
   if [[ "$use_rofi" == true ]]; then
     chosen_action=$(printf "%s\n" "${items[@]}" | rofi -dmenu -p "$prompt" -mesg "$header")
@@ -1066,7 +1238,7 @@ select_init(){
     chosen_action=$(printf "%s\n" "${items[@]}" | fzf --prompt="$prompt" --header="$header")
   fi
 
-  if [[ "$chosen_action" == "Add_subscription" ]]; then
+  if [[ "$chosen_action" == "Manage_subscriptions" ]]; then
     sub_mode="true"
   elif [[ "$chosen_action" == "Open_your_feed" ]]; then
     feed_mode="true"
@@ -1089,7 +1261,7 @@ main() {
   while :; do
     case "$STATE" in
     SEARCH) handle_selection ;;
-    SUB) subscribe;;
+    SUB) manage_subscriptions ;;
     PLAY) perform_action ;;
     HISTORY) handle_history ;;
     EXIT) break ;;
