@@ -65,7 +65,7 @@ TMPDIR=""
 
 fetch_feed(){
    cacheFeed="$CACHE_DIR/feed.json"
-   if [[ -f "$cacheFeed" ]]&& (( $(date +%s) - $(stat -c "%Y" "$cacheFeed") < 1800 )); then
+   if [[ -f "$cacheFeed" ]] && jq -e 'length != 0' "$cacheFeed" && (( $(date +%s) - $(stat -c "%Y" "$cacheFeed") < 1800 )); then
      cat "$cacheFeed"
    else
      mapfile -t subs < <(jq -r '.[] | "\(.title),\(.channelName)"' "$SUB_FILE")
