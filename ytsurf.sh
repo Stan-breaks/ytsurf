@@ -902,7 +902,7 @@ add_to_history() {
   tmp_history="$(mktemp)"
 
   # Validate existing JSON
-  if jq empty "$history_file" 2>/dev/null; then
+  if ! jq empty "$history_file" 2>/dev/null; then
     echo "[]" >"$history_file"
   fi
 
