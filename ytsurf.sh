@@ -5,7 +5,7 @@ set -u
 # CONSTANTS AND DEFAULTS
 #=============================================================================
 
-readonly SCRIPT_VERSION="3.1.0"
+readonly SCRIPT_VERSION="3.1.1"
 readonly SCRIPT_NAME="ytsurf"
 
 # Default configuration values
@@ -812,7 +812,6 @@ perform_action() {
     download_mode="$selection"
   }
 
-  local format_code=""
   if [[ "$format_selection" = true ]]; then
     if ! format_code=$(select_format "$video_url"); then
       send_notification "Format selection cancelled."
@@ -865,7 +864,6 @@ play_video() {
 
   case "$player" in
   mpv)
-
     player="$player --keep-open=no --really-quiet --input-ipc-server=$YTSURF_SOCKET"
     [ "$audio_only" == "true" ] && player="$player --no-video"
     [ -n "$format_code" ] && player="$player --ytdl-format=\"$format_code\""
