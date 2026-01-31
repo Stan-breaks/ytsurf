@@ -5,7 +5,7 @@ set -u
 # CONSTANTS AND DEFAULTS
 #=============================================================================
 
-readonly SCRIPT_VERSION="3.1.2"
+readonly SCRIPT_VERSION="3.1.3"
 readonly SCRIPT_NAME="ytsurf"
 
 # Default configuration values
@@ -49,6 +49,7 @@ format_selection="$DEFAULT_FORMAT_SELECTION"
 download_dir="${XDG_DOWNLOAD_DIR:-$HOME/Downloads}"
 history_file="$CACHE_DIR/history.json"
 max_history_entries="$DEFAULT_MAX_HISTORY_ENTRIES"
+format_code="bestvideo[height<=720]+bestaudio/best"
 notify="$DEFAULT_NOTIFY"
 editor="nvim"
 player="mpv"
