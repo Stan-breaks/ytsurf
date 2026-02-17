@@ -64,29 +64,29 @@ TMPDIR=""
 # UTILITY FUNCTIONS
 #=============================================================================
 
-fetch_feed(){
-   cacheFeed="$CACHE_DIR/feed.json"
-   if [[ -f "$cacheFeed" ]] && jq -e 'length != 0' "$cacheFeed" && (( $(date +%s) - $(stat -c "%Y" "$cacheFeed") < 1800 )); then
-     cat "$cacheFeed"
-   else
-     mapfile -t subs < <(jq -r '.[] | "\(.title),\(.channelName)"' "$SUB_FILE")
-     jsonData=$(printf "%s\n" "${subs[@]}" \
-     | shuf \
-     | head -n 5 \
-     | xargs -P 6 -I{} bash -c 'process_channel "$@"' _ {} 2>/dev/null \
-     | jq -c '.[]'\
-     | shuf \
-     | head -n "$limit" \
-     | jq -s '.')
-     echo "$jsonData" > "$cacheFeed"
-     echo "$jsonData"
-   fi
+fetch_feed() {
+  cacheFeed="$CACHE_DIR/feed.json"
+  if [[ -f "$cacheFeed" ]] && jq -e 'length != 0' "$cacheFeed" && (($(date +%s) - $(stat -c "%Y" "$cacheFeed") < 1800)); then
+    cat "$cacheFeed"
+  else
+    mapfile -t subs < <(jq -r '.[] | "\(.title),\(.channelName)"' "$SUB_FILE")
+    jsonData=$(printf "%s\n" "${subs[@]}" |
+      shuf |
+      head -n 5 |
+      xargs -P 6 -I{} bash -c 'process_channel "$@"' _ {} 2>/dev/null |
+      jq -c '.[]' |
+      shuf |
+      head -n "$limit" |
+      jq -s '.')
+    echo "$jsonData" >"$cacheFeed"
+    echo "$jsonData"
+  fi
 }
 
-process_channel(){
-  IFS=',' read -r title channel <<< "$1"
-  title=$(xargs <<< "$title")
-  channel=$(xargs <<< "$channel" | jq -nr --arg str "$channel" '$str|@uri' )
+process_channel() {
+  IFS=',' read -r title channel <<<"$1"
+  title=$(xargs <<<"$title")
+  channel=$(xargs <<<"$channel" | jq -nr --arg str "$channel" '$str|@uri')
   curl -s --compressed --http1.1 --keepalive-time 30 \
     "https://www.youtube.com/$channel/videos" |
     sed -n 's/.*var ytInitialData = \(.*\);<\/script>.*/\1/p' |
@@ -108,18 +108,19 @@ process_channel(){
 }
 export -f process_channel
 
-search_channel(){
-cacheKey=$(echo -n "$query channel" | sha256sum | cut -d' ' -f1)
-cacheFile="$CACHE_DIR/$cacheKey"
+search_channel() {
+  cacheKey=$(echo -n "$query channel" | sha256sum | cut -d' ' -f1)
+  cacheFile="$CACHE_DIR/$cacheKey"
 
-if [[ -f "$cacheFile" ]] && (( $(date +%s) - $(stat -c "%Y" "$cacheFile") < 600 )); then
+  if [[ -f "$cacheFile" ]] && (($(date +%s) - $(stat -c "%Y" "$cacheFile") < 600)); then
     cat "$cacheFile"
-else
+  else
     local jsonData
     encodedQuery=$(jq -rn --arg q "$query" '$q|@uri')
-    jsonData=$(curl -s --compressed --http1.1 --keepalive-time 30 "https://www.youtube.com/results?search_query=${encodedQuery}&sp=EgIQAg%3D%3D&hl=en&gl=US" \
-      | sed -n 's/.*var ytInitialData = \(.*\);<\/script>.*/\1/p' \
-      | jq -r '.contents.twoColumnSearchResultsRenderer.primaryContents.sectionListRenderer.contents[0].itemSectionRenderer.contents
+    jsonData=$(
+      curl -s --compressed --http1.1 --keepalive-time 30 "https://www.youtube.com/results?search_query=${encodedQuery}&sp=EgIQAg%3D%3D&hl=en&gl=US" |
+        sed -n 's/.*var ytInitialData = \(.*\);<\/script>.*/\1/p' |
+        jq -r '.contents.twoColumnSearchResultsRenderer.primaryContents.sectionListRenderer.contents[0].itemSectionRenderer.contents
       | map(.channelRenderer)
       | map({
               channelId: .channelId,
@@ -129,15 +130,13 @@ else
               subscribers:.videoCountText.simpleText,
            })
           |.[0:5]
-          | map(select(.channelName != null and .subscribers != null))'\
-          2>/dev/null \
+          | map(select(.channelName != null and .subscribers != null))' \
+          2>/dev/null
     )
-    echo "$jsonData" > "$cacheFile"
+    echo "$jsonData" >"$cacheFile"
     echo "$jsonData"
-fi
+  fi
 }
-
-
 
 command -v notify-send >/dev/null 2>&1 && notify="true" || notify="false" # check if notify-send is installed
 # Send notications
@@ -241,7 +240,6 @@ EOF
     echo
 EOF
 }
-
 
 create_desktop_entries() {
   local json_data="$1"
@@ -353,7 +351,7 @@ edit_config() {
 configuration() {
   mkdir -p "$CACHE_DIR" "$CONFIG_DIR"
 
-  [ -f "$SUB_FILE" ] || echo "[]" > "$SUB_FILE"
+  [ -f "$SUB_FILE" ] || echo "[]" >"$SUB_FILE"
 
   # shellcheck source=/home/stan/.config/ytsurf/config
 
@@ -459,23 +457,23 @@ parse_arguments() {
       shift
       ;;
     --feed | -F)
-      feed_mode=true 
-      shift 
+      feed_mode=true
+      shift
       ;;
-    --subscribe| -S)
+    --subscribe | -S)
       sub_mode=true
       add_sub=true
-      shift 
+      shift
       ;;
-     --unsubscribe)
+    --unsubscribe)
       sub_mode=true
       remove_sub=true
-      shift 
-      ;;   
+      shift
+      ;;
     --import-subs)
       sub_mode=true
       import_subs=true
-      shift 
+      shift
       ;;
     --copy-url)
       copy_mode=true
@@ -509,11 +507,10 @@ parse_arguments() {
 # Subscribe
 #=============================================================================
 
-
-manage_subscriptions(){
-  if [[ "$import_subs" == true ]];then
+manage_subscriptions() {
+  if [[ "$import_subs" == true ]]; then
     sync_subs
-  elif [[ "$add_sub" == true  ]];then
+  elif [[ "$add_sub" == true ]]; then
     subscribe
   elif [[ "$remove_sub" == true ]]; then
     unsubscribe
@@ -531,19 +528,19 @@ manage_subscriptions(){
       chosen_action=$(printf "%s\n" "${items[@]}" | fzf --prompt="$prompt" --header="$header")
     fi
 
-    if [[ "$chosen_action" == "Sync_Subscriptions" ]];then
+    if [[ "$chosen_action" == "Sync_Subscriptions" ]]; then
       sync_subs
-    elif [[ "$chosen_action" == "Add_Subscription" ]];then
+    elif [[ "$chosen_action" == "Add_Subscription" ]]; then
       subscribe
     else
       unsubscribe
     fi
   fi
 
-  STATE=EXIT;
+  STATE=EXIT
 }
 
-sync_subs(){
+sync_subs() {
   local chosen_action
   local prompt="Select Action:"
   local header="This is gonna overwrite your existing subs. Continue?"
@@ -567,7 +564,7 @@ sync_subs(){
     else
       chosen_action=$(printf "%s\n" "${items[@]}" | fzf --prompt="$prompt" --header="$header")
     fi
-    if  json_data=$(yt-dlp --cookies-from-browser "$chosen_action" --flat-playlist  https://www.youtube.com/feed/channels -J);then
+    if json_data=$(yt-dlp --cookies-from-browser "$chosen_action" --flat-playlist https://www.youtube.com/feed/channels -J); then
       echo "$json_data" | jq -r '.entries
       | map({
              channelId:.channel_id,
@@ -581,12 +578,12 @@ sync_subs(){
                    else tostring
                    end
                   )
-           })' > "$SUB_FILE"
+           })' >"$SUB_FILE"
       send_notification "ytsurf" "Subs synced"
     else
       send_notification "Error" "Syncing failed"
     fi
-  else 
+  else
     send_notification "Error" "Syncing cancel"
   fi
 
@@ -594,25 +591,25 @@ sync_subs(){
 
 }
 
-subscribe(){
- get_search_query
+subscribe() {
+  get_search_query
   jsonData=$(search_channel)
   export jsonData TMPDIR
   menuList=()
   mapfile -t menuList < <(echo "$jsonData" | jq -r '.[].title' 2>/dev/null)
 
-  if [[ "$use_rofi" == true ]];then
-    create_desktop_entries_channel 
+  if [[ "$use_rofi" == true ]]; then
+    create_desktop_entries_channel
     selected_item=$(select_with_rofi_drun)
     rm -rf "$TMPDIR/applications"
-  elif [[ "$use_sentaku" == true ]];then
+  elif [[ "$use_sentaku" == true ]]; then
     selected_item=$(printf "%s\n" "${menu_items[@]}" | sed 's/ /␣/g' | sentaku)
     selected_item=${selected_item//␣/ }
   else
     previewScript=$(create_preview_script_fzf_channel)
     selected_item=$(printf "%s\n" "${menuList[@]}" | fzf \
-          --prompt="search channel" \
-          --preview="bash -c '$previewScript' -- {n}")
+      --prompt="search channel" \
+      --preview="bash -c '$previewScript' -- {n}")
   fi
   [ -n "$selected_item" ] || {
     send_notification "Error" "No selection made."
@@ -620,10 +617,10 @@ subscribe(){
   }
   idx=-1
   for i in "${!menuList[@]}"; do
-      if [[ "${menuList[$i]}" == "$selected_item" ]]; then
-          idx=$i
-          break
-      fi
+    if [[ "${menuList[$i]}" == "$selected_item" ]]; then
+      idx=$i
+      break
+    fi
   done
   [[ "$idx" -eq -1 ]] && exit 0
 
@@ -631,9 +628,9 @@ subscribe(){
   tmp_sub="$(mktemp)"
 
   if ! jq empty "$SUB_FILE" 2>/dev/null; then
-     echo "[]" >"$SUB_FILE"
+    echo "[]" >"$SUB_FILE"
   fi
-  
+
   entry=$(echo "$jsonData" | jq -r ".[$idx]")
   channelId=$(echo "$entry" | jq -r '.channelId')
 
@@ -651,7 +648,7 @@ subscribe(){
   query=""
 }
 
-unsubscribe(){
+unsubscribe() {
 
   if ! jq empty "$SUB_FILE" 2>/dev/null; then
     send_notification "Error" "No subscriptions found."
@@ -668,18 +665,18 @@ unsubscribe(){
   menuList=()
   mapfile -t menuList < <(echo "$jsonData" | jq -r '.[].title' 2>/dev/null)
 
-  if [[ "$use_rofi" == true ]];then
-    create_desktop_entries_channel 
+  if [[ "$use_rofi" == true ]]; then
+    create_desktop_entries_channel
     selected_item=$(select_with_rofi_drun)
     rm -rf "$TMPDIR/applications"
-  elif [[ "$use_sentaku" == true ]];then
+  elif [[ "$use_sentaku" == true ]]; then
     selected_item=$(printf "%s\n" "${menu_items[@]}" | sed 's/ /␣/g' | sentaku)
     selected_item=${selected_item//␣/ }
   else
     previewScript=$(create_preview_script_fzf_channel)
     selected_item=$(printf "%s\n" "${menuList[@]}" | fzf \
-          --prompt="search channel" \
-          --preview="bash -c '$previewScript' -- {n}")
+      --prompt="search channel" \
+      --preview="bash -c '$previewScript' -- {n}")
   fi
   [ -n "$selected_item" ] || {
     send_notification "Error" "No selection made."
@@ -687,10 +684,10 @@ unsubscribe(){
   }
   idx=-1
   for i in "${!menuList[@]}"; do
-      if [[ "${menuList[$i]}" == "$selected_item" ]]; then
-          idx=$i
-          break
-      fi
+    if [[ "${menuList[$i]}" == "$selected_item" ]]; then
+      idx=$i
+      break
+    fi
   done
   [[ "$idx" -eq -1 ]] && exit 0
   local tmp_sub
@@ -698,8 +695,8 @@ unsubscribe(){
 
   entry=$(echo "$jsonData" | jq -r ".[$idx]")
   channelId=$(echo "$entry" | jq -r ".channelId")
-  jq -n --arg channelId "$channelId"\
-     --slurpfile existing "$SUB_FILE" \
+  jq -n --arg channelId "$channelId" \
+    --slurpfile existing "$SUB_FILE" \
     '
     ($existing[0] | map(select(.channelId != $channelId)))
     ' >"$tmp_sub"
@@ -727,7 +724,7 @@ select_action() {
 
   if [[ "$chosen_action" == "watch" ]]; then
     echo false
-  elif [[ "$chosen_action" == "watch_with_friends" ]];then
+  elif [[ "$chosen_action" == "watch_with_friends" ]]; then
     player="syncplay"
     echo false
 
@@ -868,7 +865,7 @@ play_video() {
     player="$player --keep-open=no --really-quiet --input-ipc-server=$YTSURF_SOCKET"
     [ "$audio_only" == "true" ] && player="$player --no-video"
     [ -n "$format_code" ] && player="$player --ytdl-format=\"$format_code\""
-  
+
     player="$player $video_url"
     eval "$player"
     player="mpv"
@@ -965,7 +962,7 @@ handle_history() {
     rm -rf "$TMPDIR/applications"
 
   else
-      selected_title=$(select_from_menu "${history_titles[@]}" "Watch history:" "$json_data" true)
+    selected_title=$(select_from_menu "${history_titles[@]}" "Watch history:" "$json_data" true)
   fi
 
   [ -z "$selected_title" ] && {
@@ -1047,9 +1044,9 @@ fetch_search_results() {
   local encoded_query
   encoded_query=$(printf '%s' "$search_query" | jq -sRr @uri)
 
-  json_data=$(curl -s --compressed --http1.1 --keepalive-time 30 "https://www.youtube.com/results?search_query=${encoded_query}&sp=EgIQAQ%253D%253D&hl=en&gl=US" \
-    | perl -0777 -ne 'print $1 if /var ytInitialData = (.*?);\s*<\/script>/s'\
-    | jq -r --argjson limit "$limit" "
+  json_data=$(curl -s --compressed --http1.1 --keepalive-time 30 "https://www.youtube.com/results?search_query=${encoded_query}&sp=EgIQAQ%253D%253D&hl=en&gl=US" |
+    perl -0777 -ne 'print $1 if /var ytInitialData = (.*?);\s*<\/script>/s' |
+    jq -r --argjson limit "$limit" "
       [
         .. | objects |
         select(has(\"videoRenderer\")) |
@@ -1168,12 +1165,12 @@ handle_selection() {
     }
   }
   [[ "$feed_mode" == "true" ]] || {
-     get_search_query
-     json_data=$(fetch_search_results "$query") || {
-        send_notification "Error" "Failed to fetch search results for '$query'"
-        exit 1
-     }
-  } 
+    get_search_query
+    json_data=$(fetch_search_results "$query") || {
+      send_notification "Error" "Failed to fetch search results for '$query'"
+      exit 1
+    }
+  }
 
   local menu_list=()
   mapfile -t menu_list < <(echo "$json_data" | jq -r '.[].title' 2>/dev/null)
@@ -1184,7 +1181,7 @@ handle_selection() {
     rm -rf "$TMPDIR/applications"
 
   else
-      [ ${#menu_list[@]} -eq 0 ] && {
+    [ ${#menu_list[@]} -eq 0 ] && {
       send_notification "Error" "No results found for '$query'"
       exit 0
     }
@@ -1229,7 +1226,7 @@ handle_selection() {
   STATE="PLAY"
 }
 
-select_init(){
+select_init() {
   local chosen_action
   local prompt="Select Action:"
   local header="Available Actions"
