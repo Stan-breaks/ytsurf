@@ -391,6 +391,7 @@ check_dependencies() {
 
   local required_deps=("yt-dlp" "mpv" "jq" "curl" "perl")
   [ "$player" == "syncplay" ] && required_deps+=("syncplay")
+  [ "$player" == "iina" ] && required_deps+=("iina")
 
   for dep in "${required_deps[@]}"; do
     if ! command -v "$dep" &>/dev/null; then
@@ -877,6 +878,15 @@ play_video() {
     }
     "$player" "$video_url"
     exit 0
+    ;;
+  iina)
+    player="$player --keep-open=no --really-quiet --input-ipc-server=$YTSURF_SOCKET"
+    [ "$audio_only" == "true" ] && player="$player --no-video"
+    [ -n "$format_code" ] && player="$player --ytdl-format=\"$format_code\""
+
+    player="$player $video_url"
+    eval "$player"
+    player="iina"
     ;;
   esac
 }
