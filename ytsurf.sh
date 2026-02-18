@@ -70,7 +70,7 @@ fetch_feed() {
     cat "$cacheFeed"
   else
     mapfile -t subs < <(jq -r '.[] | "\(.title),\(.channelName)"' "$SUB_FILE")
-    jsonData=$(printf "%s\n" "${subs[@]}" |
+    json_data=$(printf "%s\n" "${subs[@]}" |
       shuf |
       head -n 5 |
       xargs -P 6 -I{} bash -c 'process_channel "$@"' _ {} 2>/dev/null |
@@ -78,8 +78,7 @@ fetch_feed() {
       shuf |
       head -n "$limit" |
       jq -s '.')
-    echo "$jsonData" >"$cacheFeed"
-    echo "$jsonData"
+    echo "$json_data" >"$cacheFeed"
   fi
 }
 
@@ -1037,11 +1036,10 @@ get_search_query() {
 }
 
 fetch_search_results() {
-  local search_query="$1"
-  local cache_key cache_file json_data
+  local cache_key cache_file
 
   # Setup caching
-  cache_key=$(echo -n "$search_query" | sha256sum | cut -d' ' -f1)
+  cache_key=$(echo -n "$query" | sha256sum | cut -d' ' -f1)
   cache_file="$CACHE_DIR/$cache_key.json"
 
   # Check cache (10 minute expiry)
@@ -1052,10 +1050,12 @@ fetch_search_results() {
 
   # Fetch new results
   local encoded_query
-  encoded_query=$(printf '%s' "$search_query" | jq -sRr @uri)
+  encoded_query=$(printf '%s' "$query" | jq -sRr @uri)
 
-  json_data=$(curl -s --compressed --http1.1 --keepalive-time 30 "https://www.youtube.com/results?search_query=${encoded_query}&sp=EgIQAQ%253D%253D&hl=en&gl=US" |
-    perl -0777 -ne 'print $1 if /var ytInitialData = (.*?);\s*<\/script>/s' |
+  response=$(curl -s --compressed --http1.1 --keepalive-time 30 "https://www.youtube.com/results?search_query=${encoded_query}&sp=EgIQAQ%253D%253D&hl=en&gl=US" |
+    perl -0777 -ne 'print $1 if /var ytInitialData = (.*?);\s*<\/script>/s')
+
+  json_data=$(echo "$response" |
     jq -r --argjson limit "$limit" "
       [
         .. | objects |
@@ -1072,9 +1072,66 @@ fetch_search_results() {
       ] | .[:$limit]
       " 2>/dev/null)
 
-  echo "$json_data" >"$cache_file"
-  echo "$json_data"
+  continuation_token=$(echo "$response" | jq -r " 
+      .. |objects| 
+        select(has(\"continuationItemRenderer\")) |
+        .continuationItemRenderer.continuationEndpoint.continuationCommand.token |
+        select(.!=null)
+      " | head -1)
 
+  while [[ $(jq 'length' <<<"$json_data") -lt "$limit" && -n "$continuation_token" ]]; do
+    sleep 1
+    body=$(jq -n \
+      --arg continuation "$continuation_token" \
+      '{
+                context: {
+                    client: {
+                        clientName: "WEB",
+                        clientVersion: "2.20220101.00.00"
+                    }
+                },
+                continuation: $continuation
+            }')
+
+    next_response=$(curl -s --compressed --http1.1 \
+      -H "Content-Type: application/json" \
+      -d "$body" \
+      "https://www.youtube.com/youtubei/v1/search?key=AIzaSyAO90d0o_cimLECsGBARHaB_YvqXMCm5Bk")
+
+    next_json=$(echo "$next_response" |
+      jq -r "
+      [
+        .. | objects |
+        select(has(\"videoRenderer\")) |
+        .videoRenderer | {
+          title: .title.runs[0].text,
+          id: .videoId,
+          author: .longBylineText.runs[0].text,
+          published: .publishedTimeText.simpleText,
+          duration: .lengthText.simpleText,
+          views: .viewCountText.simpleText,
+          thumbnail: (.thumbnail.thumbnails | sort_by(.width) | last.url)
+        }
+      ] 
+      " 2>/dev/null)
+
+    if [[ -z "$next_json" || "$next_json" == "[]" ]]; then
+      break
+    fi
+
+    continuation_token=$(echo "$next_response" | jq -r " 
+      .. |objects| 
+        select(has(\"continuationItemRenderer\")) |
+        .continuationItemRenderer.continuationEndpoint.continuationCommand.token |
+        select(.!=null)
+      " | head -1)
+
+    json_data=$(jq -s 'add | unique_by(.id)' <<<"$json_data"$'\n'"$next_json" | jq -r --argjson limit "$limit" "
+      .[:$limit]
+      ")
+  done
+
+  echo "$json_data" >"$cache_file"
 }
 
 create_preview_script_fzf() {
@@ -1083,13 +1140,13 @@ create_preview_script_fzf() {
   cat <<'EOF'
 printf "\033[H\033[J"
 idx=$(($1))
-id=$(echo "$json_data" | jq -r ".[$idx].id" 2>/dev/null)
-title=$(echo "$json_data" | jq -r ".[$idx].title" 2>/dev/null)
-duration=$(echo "$json_data" | jq -r ".[$idx].duration" 2>/dev/null)
-views=$(echo "$json_data" | jq -r ".[$idx].views" 2>/dev/null)
-author=$(echo "$json_data" | jq -r ".[$idx].author" 2>/dev/null)
-published=$(echo "$json_data" | jq -r ".[$idx].published" 2>/dev/null)
-thumbnail=$(echo "$json_data" | jq -r ".[$idx].thumbnail" 2>/dev/null)
+id=$(jq -r ".[$idx].id" <<< "$json_data" 2>/dev/null)
+title=$(jq -r ".[$idx].title" <<< "$json_data" 2>/dev/null)
+duration=$(jq -r ".[$idx].duration" <<< "$json_data" 2>/dev/null)
+views=$(jq -r ".[$idx].views" <<< "$json_data"  2>/dev/null)
+author=$(jq -r ".[$idx].author" <<< "$json_data" 2>/dev/null)
+published=$(jq -r ".[$idx].published" <<< "$json_data"  2>/dev/null)
+thumbnail=$(jq -r ".[$idx].thumbnail" <<< "$json_data"  2>/dev/null)
 
 if [[ -n "$id" && "$id" != "null" ]]; then
     echo
@@ -1168,7 +1225,7 @@ select_from_menu() {
 
 handle_selection() {
   [[ "$feed_mode" == "true" ]] && {
-    json_data=$(fetch_feed)
+    fetch_feed
     [[ "$json_data" == "[]" ]] && {
       send_notification "Error" "Failed to fetch your feed"
       exit 1
@@ -1176,8 +1233,9 @@ handle_selection() {
   }
   [[ "$feed_mode" == "true" ]] || {
     get_search_query
-    json_data=$(fetch_search_results "$query") || {
-      send_notification "Error" "Failed to fetch search results for '$query'"
+    fetch_search_results
+    [[ "$json_data" == "[]" ]] && {
+      send_notification "Error" "Failed to fetch search results"
       exit 1
     }
   }
