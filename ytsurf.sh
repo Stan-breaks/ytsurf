@@ -13,6 +13,7 @@ DEFAULT_LIMIT=15
 DEFAULT_AUDIO_ONLY=false
 DEFAULT_USE_ROFI=false
 DEFAULT_USE_SENTAKU=false
+DEFAULT_USE_TV=false
 DEFAULT_DOWNLOAD_MODE=false
 DEFAULT_HISTORY_MODE=false
 DEFAULT_SUB_MODE=false
@@ -38,6 +39,7 @@ limit="$DEFAULT_LIMIT"
 audio_only="$DEFAULT_AUDIO_ONLY"
 use_rofi="$DEFAULT_USE_ROFI"
 use_sentaku="$DEFAULT_USE_SENTAKU"
+use_tv="$DEFAULT_USE_TV"
 download_mode="$DEFAULT_DOWNLOAD_MODE"
 history_mode="$DEFAULT_HISTORY_MODE"
 sub_mode="$DEFAULT_SUB_MODE"
@@ -140,7 +142,7 @@ search_channel() {
 command -v notify-send >/dev/null 2>&1 && notify="true" || notify="false" # check if notify-send is installed
 # Send notications
 send_notification() {
-  if [ "$use_rofi" = false ] && [ "$use_sentaku" = false ]; then
+  if [ "$use_rofi" = false ]; then
     [ -z "$2" ] && printf "\33[2K\r\033[1;34m%s\n\033[0m" "$1" && return
     [ -n "$2" ] && printf "\33[2K\r\033[1;34m%s - %s\n\033[0m" "$1" "$2" && return
   fi
@@ -228,8 +230,10 @@ EOF
     if command -v chafa &>/dev/null; then
         img_path="$TMPDIR/$id.jpg"
         [[ ! -f "$img_path" ]] && curl -fsSL --compressed --http1.1 --keepalive-time 30  "$thumbnail" -o "$img_path" 2>/dev/null
-        img_h=$((FZF_PREVIEW_LINES - 10))
-        img_w=$((FZF_PREVIEW_COLUMNS - 4))
+        preview_lines="${FZF_PREVIEW_LINES:-$(( LINES - 6 ))}"
+        preview_cols="${FZF_PREVIEW_COLUMNS:-$(( COLUMNS / 2 - 4 ))}"        
+        img_h=$(( preview_lines - 10 ))
+        img_w=$(( preview_cols - 4 ))
         img_h=$(( img_h < 10 ? 10 : img_h ))
         img_w=$(( img_w < 20 ? 20 : img_w ))
         chafa --symbols=block --size="${img_w}x${img_h}" "$img_path" 2>/dev/null || echo "(failed to render thumbnail)"
@@ -360,6 +364,7 @@ configuration() {
 #audio_only=false
 #use_rofi=false
 #use_sentaku=false
+#use_tv=false
 #download_mode=false
 #history_mode=false
 #format_selection=false
@@ -434,6 +439,10 @@ parse_arguments() {
       ;;
     --sentaku)
       use_sentaku=true
+      shift
+      ;;
+    --tv)
+      use_tv=true
       shift
       ;;
     --audio)
@@ -522,6 +531,16 @@ manage_subscriptions() {
 
     if [[ "$use_rofi" == true ]]; then
       chosen_action=$(printf "%s\n" "${items[@]}" | rofi -dmenu -p "$prompt" -mesg "$header")
+    elif [[ "$use_tv" == true ]]; then
+      chosen_action=$(tv \
+        --source-command="printf '%s\n' ${items[*]}" \
+        --no-preview \
+        --no-remote \
+        --no-help-panel \
+        --input-prompt="❯ " \
+        --input-header="$header" \
+        --no-status-bar)
+
     elif [[ "$use_sentaku" == true ]]; then
       chosen_action=$(printf "%s\n" "${items[@]}" | sentaku)
     else
@@ -532,8 +551,11 @@ manage_subscriptions() {
       sync_subs
     elif [[ "$chosen_action" == "Add_Subscription" ]]; then
       subscribe
-    else
+    elif [[ "$chosen_action" == "Remove_Subscription" ]]; then
       unsubscribe
+    else
+      send_notification "Error" "no selection made"
+      exit 1
     fi
   fi
 
@@ -547,6 +569,15 @@ sync_subs() {
   local items=("Yes" "No")
   if [[ "$use_rofi" == true ]]; then
     chosen_action=$(printf "%s\n" "${items[@]}" | rofi -dmenu -p "$prompt" -mesg "$header")
+  elif [[ "$use_tv" == true ]]; then
+    chosen_action=$(tv \
+      --source-command="printf '%s\n' ${items[*]}" \
+      --no-preview \
+      --no-remote \
+      --no-help-panel \
+      --input-prompt="❯ " \
+      --input-header="$header" \
+      --no-status-bar)
   elif [[ "$use_sentaku" == true ]]; then
     chosen_action=$(printf "%s\n" "${items[@]}" | sentaku)
   else
@@ -559,6 +590,15 @@ sync_subs() {
     items=("brave" "chrome" "chromium" "edge" "firefox" "opera" "safari" "vivaldi" "whale")
     if [[ "$use_rofi" == true ]]; then
       chosen_action=$(printf "%s\n" "${items[@]}" | rofi -dmenu -p "$prompt" -mesg "$header")
+    elif [[ "$use_tv" == true ]]; then
+      chosen_action=$(tv \
+        --source-command="printf '%s\n' ${items[*]}" \
+        --no-preview \
+        --no-remote \
+        --no-help-panel \
+        --input-prompt="❯ " \
+        --input-header="$header" \
+        --no-status-bar)
     elif [[ "$use_sentaku" == true ]]; then
       chosen_action=$(printf "%s\n" "${items[@]}" | sentaku)
     else
@@ -605,6 +645,20 @@ subscribe() {
   elif [[ "$use_sentaku" == true ]]; then
     selected_item=$(printf "%s\n" "${menu_items[@]}" | sed 's/ /␣/g' | sentaku)
     selected_item=${selected_item//␣/ }
+  elif [[ "$use_tv" == true ]]; then
+    previewScript=$(create_preview_script_fzf_channel)
+    indexed_list=$(awk '{print NR-1"\t"$0}' <(printf "%s\n" "${menuList[@]}"))
+    selected_idx=$(printf "%s\n" "$indexed_list" | tv \
+      --source-command="printf '%s\n' $(printf '%q\n' "$indexed_list")" \
+      --preview-command="bash -c '$previewScript' -- {0}" \
+      --preview-header="Channel Preview" \
+      --input-header="Search channel" \
+      --input-prompt="❯ " \
+      --no-remote \
+      --no-help-panel \
+      --no-status-bar | cut -f1)
+    [[ -n "$selected_idx" ]] && selected_item="${menuList[$selected_idx]}"
+
   else
     previewScript=$(create_preview_script_fzf_channel)
     selected_item=$(printf "%s\n" "${menuList[@]}" | fzf \
@@ -672,6 +726,20 @@ unsubscribe() {
   elif [[ "$use_sentaku" == true ]]; then
     selected_item=$(printf "%s\n" "${menu_items[@]}" | sed 's/ /␣/g' | sentaku)
     selected_item=${selected_item//␣/ }
+  elif [[ "$use_tv" == true ]]; then
+    previewScript=$(create_preview_script_fzf_channel)
+    indexed_list=$(awk '{print NR-1"\t"$0}' <(printf "%s\n" "${menuList[@]}"))
+    selected_idx=$(printf "%s\n" "$indexed_list" | tv \
+      --source-command="printf '%s\n' $(printf '%q\n' "$indexed_list")" \
+      --preview-command="bash -c '$previewScript' -- {0}" \
+      --preview-header="Channel Preview" \
+      --input-header="Search channel" \
+      --input-prompt="❯ " \
+      --no-remote \
+      --no-help-panel \
+      --no-status-bar | cut -f1)
+    [[ -n "$selected_idx" ]] && selected_item="${menuList[$selected_idx]}"
+
   else
     previewScript=$(create_preview_script_fzf_channel)
     selected_item=$(printf "%s\n" "${menuList[@]}" | fzf \
@@ -703,6 +771,7 @@ unsubscribe() {
 
   mv "$tmp_sub" "$SUB_FILE"
 
+  send_notification "ytsurf" "Unsubscribed from $selected_item"
 }
 #=============================================================================
 # ACTION SELECTION
@@ -718,6 +787,15 @@ select_action() {
     chosen_action=$(printf "%s\n" "${items[@]}" | rofi -dmenu -p "$prompt" -mesg "$header")
   elif [[ "$use_sentaku" == true ]]; then
     chosen_action=$(printf "%s\n" "${items[@]}" | sentaku)
+  elif [[ "$use_tv" == true ]]; then
+    chosen_action=$(tv \
+      --source-command="printf '%s\n' ${items[*]}" \
+      --no-preview \
+      --no-remote \
+      --no-help-panel \
+      --input-prompt="❯ " \
+      --input-header="$header" \
+      --no-status-bar)
   else
     chosen_action=$(printf "%s\n" "${items[@]}" | fzf --prompt="$prompt" --header="$header")
   fi
@@ -774,6 +852,15 @@ select_format() {
     chosen_res=$(printf "%s\n" "${format_options[@]}" | rofi -dmenu -p "$prompt" -mesg "$header")
   elif [[ "$use_sentaku" == true ]]; then
     chosen_res=$(printf "%s\n" "${format_options[@]}" | sentaku)
+  elif [[ "$use_tv" == true ]]; then
+    chosen_action=$(tv \
+      --source-command="printf '%s\n' ${items[*]}" \
+      --no-preview \
+      --no-remote \
+      --no-help-panel \
+      --input-prompt="❯ " \
+      --input-header="$header" \
+      --no-status-bar)
   else
     chosen_res=$(printf "%s\n" "${format_options[@]}" | fzf --prompt="$prompt" --header="$header")
   fi
@@ -1208,9 +1295,23 @@ select_from_menu() {
   export json_data TMPDIR
 
   local selected_item=""
-  if [[ "$use_sentaku" == true ]] && command -v sentaku &>/dev/null; then
+  if [[ "$use_sentaku" == true ]]; then
     selected_item=$(printf "%s\n" "${menu_items[@]}" | sed 's/ /␣/g' | sentaku)
     selected_item=${selected_item//␣/ }
+
+  elif [[ "$use_tv" == true ]]; then
+    previewScript=$(create_preview_script_fzf "$is_history")
+    indexed_list=$(awk '{print NR-1"\t"$0}' <(printf "%s\n" "${menu_items[@]}"))
+    selected_idx=$(printf "%s\n" "$indexed_list" | tv \
+      --source-command="printf '%s\n' $(printf '%q\n' "$indexed_list")" \
+      --preview-command="bash -c '$previewScript' -- {0}" \
+      --preview-header="Channel Preview" \
+      --input-header="Search channel" \
+      --input-prompt="❯ " \
+      --no-remote \
+      --no-help-panel \
+      --no-status-bar | cut -f1)
+    [[ -n "$selected_idx" ]] && selected_item="${menu_items[$selected_idx]}"
 
   elif command -v fzf &>/dev/null; then
     local preview_script
@@ -1304,6 +1405,15 @@ select_init() {
     chosen_action=$(printf "%s\n" "${items[@]}" | rofi -dmenu -p "$prompt" -mesg "$header")
   elif [[ "$use_sentaku" == true ]]; then
     chosen_action=$(printf "%s\n" "${items[@]}" | sentaku)
+  elif [[ "$use_tv" == true ]]; then
+    chosen_action=$(tv \
+      --source-command="printf '%s\n' ${items[*]}" \
+      --no-preview \
+      --no-remote \
+      --no-help-panel \
+      --input-prompt="❯ " \
+      --input-header="$header" \
+      --no-status-bar)
   else
     chosen_action=$(printf "%s\n" "${items[@]}" | fzf --prompt="$prompt" --header="$header")
   fi
