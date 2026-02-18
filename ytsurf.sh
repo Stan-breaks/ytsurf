@@ -5,7 +5,7 @@ set -u
 # CONSTANTS AND DEFAULTS
 #=============================================================================
 
-readonly SCRIPT_VERSION="3.1.3"
+readonly SCRIPT_VERSION="3.1.4"
 readonly SCRIPT_NAME="ytsurf"
 
 # Default configuration values
@@ -231,12 +231,13 @@ EOF
         img_path="$TMPDIR/$id.jpg"
         [[ ! -f "$img_path" ]] && curl -fsSL --compressed --http1.1 --keepalive-time 30  "$thumbnail" -o "$img_path" 2>/dev/null
         preview_lines="${FZF_PREVIEW_LINES:-$(( LINES - 6 ))}"
-        preview_cols="${FZF_PREVIEW_COLUMNS:-$(( COLUMNS / 2 - 4 ))}"        
+        preview_cols="${FZF_PREVIEW_COLUMNS:-$(( COLUMNS / 2 - 4 ))}"
         img_h=$(( preview_lines - 10 ))
         img_w=$(( preview_cols - 4 ))
         img_h=$(( img_h < 10 ? 10 : img_h ))
         img_w=$(( img_w < 20 ? 20 : img_w ))
-        chafa --symbols=block --size="${img_w}x${img_h}" "$img_path" 2>/dev/null || echo "(failed to render thumbnail)"
+
+        chafa --size="${img_w}x${img_h}" "$img_path" 2>/dev/null || echo "(failed to render thumbnail)"
     else
         echo "(chafa not available - no thumbnail preview)"
     fi
@@ -1256,12 +1257,14 @@ EOF
     if command -v chafa &>/dev/null; then
         img_path="$TMPDIR/thumb_$id.jpg"
         [[ ! -f "$img_path" ]] && curl -fsSL --compressed --http1.1 --keepalive-time 30 "$thumbnail" -o "$img_path" 2>/dev/null
-        img_h=$((FZF_PREVIEW_LINES - 10))
-        img_w=$((FZF_PREVIEW_COLUMNS - 4))
+        preview_lines="${FZF_PREVIEW_LINES:-$(( LINES - 6 ))}"
+        preview_cols="${FZF_PREVIEW_COLUMNS:-$(( COLUMNS / 2 - 4 ))}"
+        img_h=$(( preview_lines - 10 ))
+        img_w=$(( preview_cols - 4 ))
         img_h=$(( img_h < 10 ? 10 : img_h ))
         img_w=$(( img_w < 20 ? 20 : img_w ))
-        chafa --symbols=block --size="${img_w}x${img_h}" "$img_path" 2>/dev/null || echo "(failed to render thumbnail)"
 
+        chafa --size="${img_w}x${img_h}" "$img_path" 2>/dev/null || echo "(failed to render thumbnail)"
     else
         echo "(chafa not available - no thumbnail preview)"
     fi
