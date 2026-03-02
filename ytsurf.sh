@@ -5,7 +5,7 @@ set -u
 # CONSTANTS AND DEFAULTS
 #=============================================================================
 
-readonly SCRIPT_VERSION="3.1.4"
+readonly SCRIPT_VERSION="3.1.5"
 readonly SCRIPT_NAME="ytsurf"
 
 # Default configuration values
@@ -1132,7 +1132,7 @@ fetch_search_results() {
 
   # Check cache (10 minute expiry)
   if [[ -f "$cache_file" && $(find "$cache_file" -mmin -10 2>/dev/null) ]]; then
-    json_data=$(cat "$cacheFeed")
+    json_data=$(cat "$cache_file")
     return 0
   fi
 
