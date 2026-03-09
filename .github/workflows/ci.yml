@@ -7,7 +7,8 @@ on:
     branches: [ main ]
 
 jobs:
-  test:
+  test-linux:
+    name: Test (ubuntu-latest)
     runs-on: ubuntu-latest
 
     steps:
@@ -27,6 +28,31 @@ jobs:
         chmod +x ~/.local/bin/xh
         echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
+
+    - name: Lint with ShellCheck
+      run: shellcheck ytsurf.sh
+
+    - name: Run Sanity Checks
+      run: |
+        # Test that the script runs with the --history flag (non-interactive)
+        ./ytsurf.sh -V
+
+        # Test that the script exits with an error on invalid input
+        # We expect this to fail, so we invert the exit code with !
+        ! ./ytsurf.sh --limit "not-a-number"
+
+  test-macos:
+    name: Test (macos-latest)
+    runs-on: macos-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install Dependencies
+      run: |
+        brew update
+        brew install shellcheck jq mpv curl fzf chafa yt-dlp xh
 
     - name: Lint with ShellCheck
       run: shellcheck ytsurf.sh

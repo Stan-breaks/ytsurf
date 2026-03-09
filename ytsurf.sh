@@ -1,5 +1,14 @@
 #!/usr/bin/env bash
 
+# Re-exec with newer bash on macOS if available
+if [ -z "$BASH_VERSION" ]; then
+  if [ "$(uname)" = "Darwin" ] && [ -x /opt/homebrew/bin/bash ]; then
+    exec /opt/homebrew/bin/bash "$0" "$@"
+  elif command -v bash >/dev/null 2>&1; then
+    exec bash "$0" "$@"
+  fi
+fi
+
 set -u
 #=============================================================================
 # CONSTANTS AND DEFAULTS
@@ -226,7 +235,7 @@ EOF
     echo -e "\033[1;32mSubscribers:\033[0m $subscribers"
     echo
     echo
-    
+
     if command -v chafa &>/dev/null; then
         img_path="$TMPDIR/$id.jpg"
         [[ ! -f "$img_path" ]] && curl -fsSL --compressed --http1.1 --keepalive-time 30  "$thumbnail" -o "$img_path" 2>/dev/null
@@ -1160,8 +1169,8 @@ fetch_search_results() {
       ] | .[:$limit]
       " 2>/dev/null)
 
-  continuation_token=$(echo "$response" | jq -r " 
-      .. |objects| 
+  continuation_token=$(echo "$response" | jq -r "
+      .. |objects|
         select(has(\"continuationItemRenderer\")) |
         .continuationItemRenderer.continuationEndpoint.continuationCommand.token |
         select(.!=null)
@@ -1200,15 +1209,15 @@ fetch_search_results() {
           views: .viewCountText.simpleText,
           thumbnail: (.thumbnail.thumbnails | sort_by(.width) | last.url)
         }
-      ] 
+      ]
       " 2>/dev/null)
 
     if [[ -z "$next_json" || "$next_json" == "[]" ]]; then
       break
     fi
 
-    continuation_token=$(echo "$next_response" | jq -r " 
-      .. |objects| 
+    continuation_token=$(echo "$next_response" | jq -r "
+      .. |objects|
         select(has(\"continuationItemRenderer\")) |
         .continuationItemRenderer.continuationEndpoint.continuationCommand.token |
         select(.!=null)
@@ -1253,7 +1262,7 @@ EOF
     echo -e "\033[1;34mUploaded:\033[0m $published"
     echo
     echo
-    
+
     if command -v chafa &>/dev/null; then
         img_path="$TMPDIR/thumb_$id.jpg"
         [[ ! -f "$img_path" ]] && curl -fsSL --compressed --http1.1 --keepalive-time 30 "$thumbnail" -o "$img_path" 2>/dev/null
