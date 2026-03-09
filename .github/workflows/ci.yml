@@ -52,7 +52,7 @@ jobs:
     - name: Install Dependencies
       run: |
         brew update
-        sudo brew install shellcheck jq mpv curl fzf chafa yt-dlp xh
+        brew install shellcheck jq mpv curl fzf chafa yt-dlp xh
 
     - name: Lint with ShellCheck
       run: shellcheck ytsurf.sh
