@@ -28,11 +28,12 @@ YouTube in your terminal. Clean and distraction-free.
 - Import subscriptions from youtube
 
 
-| Selector          | Features                                        | Best For                          |
-| ----------------- |  ----------------------------------------------- | --------------------------------- |
-| **fzf** (default) |Terminal-based, thumbnail previews, lightweight | Most users (fast + previews)      |
-| **rofi**          | GUI menu, keyboard-driven, clean look           | Users who prefer a graphical menu |
-| **sentaku**       | Very minimal, no previews                       | Systems without Go/`fzf` support  |
+| Selector          | Features                                        | Best For                                       |
+| ----------------- | ----------------------------------------------- | ---------------------------------------------- |
+| **fzf** (default) | Terminal-based, thumbnail previews, lightweight | Most users (fast + previews)                   |
+| **rofi**          | GUI menu, keyboard-driven, clean look           | Users who prefer a graphical menu              |
+| **sentaku**       | Very minimal, no previews                       | Systems without Go/`fzf` support               |
+| **tv**            | Terminal-based, similar to *telescope.nvim*     | Users who want a fancier terminal-based picker |
 
 
 
@@ -202,5 +203,4 @@ Released under the [GNU General Public License v3.0](LICENSE).
    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=Stan-breaks/ytsurf&type=Date" />
    <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=Stan-breaks/ytsurf&type=Date" />
  </picture>
-</a>  
-
+</a>
