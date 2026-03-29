@@ -34,6 +34,7 @@ DEFAULT_COPY_MODE=false
 
 # System directories
 readonly CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/$SCRIPT_NAME"
+readonly LOG_FILE="$CACHE_DIR/$SCRIPT_NAME.log"
 readonly CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/$SCRIPT_NAME"
 readonly CONFIG_FILE="$CONFIG_DIR/config"
 readonly SUB_FILE="$CONFIG_DIR/sub.json"
@@ -74,7 +75,6 @@ TMPDIR=""
 #=============================================================================
 # UTILITY FUNCTIONS
 #=============================================================================
-
 fetch_feed() {
   cacheFeed="$CACHE_DIR/feed.json"
   if [[ -f "$cacheFeed" ]] && jq -e 'length != 0' "$cacheFeed" && (($(date +%s) - $(stat -c "%Y" "$cacheFeed") < 1800)); then
@@ -316,6 +316,7 @@ OPTIONS:
   --help, -h      Show this help message
   --version       Show version info
   --copy-url      Copy or display the video link
+  --debug         Activate debug mode
 
 CONFIG:
   $CONFIG_FILE can contain default options like:
@@ -384,6 +385,7 @@ configuration() {
 #notify=true
 #editor="nvim"
 #player="mpv"
+#debug_mode="false"
 EOF
   fi
   # shellcheck disable=SC1090
@@ -482,6 +484,13 @@ parse_arguments() {
     --subscribe | -S)
       sub_mode=true
       add_sub=true
+      shift
+      ;;
+    --debug)
+      rm "$LOG_FILE"
+      exec 3>>"$LOG_FILE"
+      BASH_XTRACEFD=3
+      set -x
       shift
       ;;
     --unsubscribe)
