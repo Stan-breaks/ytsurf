@@ -14,7 +14,7 @@ set -u
 # CONSTANTS AND DEFAULTS
 #=============================================================================
 
-readonly SCRIPT_VERSION="3.1.5"
+readonly SCRIPT_VERSION="3.1.6"
 readonly SCRIPT_NAME="ytsurf"
 
 # Default configuration values
@@ -31,6 +31,7 @@ DEFAULT_FORMAT_SELECTION=false
 DEFAULT_MAX_HISTORY_ENTRIES=100
 DEFAULT_NOTIFY=true
 DEFAULT_COPY_MODE=false
+DEFAULT_CHAFA_BLOCK_MODE=false
 
 # System directories
 readonly CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/$SCRIPT_NAME"
@@ -67,6 +68,7 @@ editor="nvim"
 player="mpv"
 applications="$HOME/.local/share/applications/ytsurf/"
 copy_mode="$DEFAULT_COPY_MODE"
+chafa_block_mode="$DEFAULT_CHAFA_BLOCK_MODE"
 
 # Runtime variables
 query=""
@@ -246,7 +248,12 @@ EOF
         img_h=$(( img_h < 10 ? 10 : img_h ))
         img_w=$(( img_w < 20 ? 20 : img_w ))
 
-        chafa --size="${img_w}x${img_h}" "$img_path" 2>/dev/null || echo "(failed to render thumbnail)"
+        [[ "$chafa_block_mode" == "true" ]] && {
+          chafa --size="${img_w}x${img_h}" --symbols block "$img_path" 2>/dev/null || echo "(failed to render thumbnail)"
+        }
+         [[ "$chafa_block_mode" == "true" ]] || { 
+          chafa --size="${img_w}x${img_h}" "$img_path" 2>/dev/null || echo "(failed to render thumbnail)"
+        }
     else
         echo "(chafa not available - no thumbnail preview)"
     fi
@@ -317,6 +324,7 @@ OPTIONS:
   --version       Show version info
   --copy-url      Copy or display the video link
   --debug         Activate debug mode
+  --block         Use chafa in block mode instead of sixel
 
 CONFIG:
   $CONFIG_FILE can contain default options like:
@@ -385,7 +393,8 @@ configuration() {
 #notify=true
 #editor="nvim"
 #player="mpv"
-#debug_mode="false"
+#debug_mode=false
+#chafa_block_mode=false
 EOF
   fi
   # shellcheck disable=SC1090
@@ -491,6 +500,12 @@ parse_arguments() {
       exec 3>>"$LOG_FILE"
       BASH_XTRACEFD=3
       set -x
+      shift
+      ;;
+    --block)
+      chafa_block_mode=true
+      export chafa_block_mode
+      export send_notification 
       shift
       ;;
     --unsubscribe)
@@ -1282,8 +1297,12 @@ EOF
         img_h=$(( img_h < 10 ? 10 : img_h ))
         img_w=$(( img_w < 20 ? 20 : img_w ))
 
-        chafa --size="${img_w}x${img_h}" "$img_path" 2>/dev/null || echo "(failed to render thumbnail)"
-    else
+         [[ "$chafa_block_mode" == "true" ]] && {
+          chafa --size="${img_w}x${img_h}" --symbols block "$img_path" 2>/dev/null || echo "(failed to render thumbnail)"
+        }
+         [[ "$chafa_block_mode" == "true" ]] || { 
+          chafa --size="${img_w}x${img_h}" "$img_path" 2>/dev/null || echo "(failed to render thumbnail)"
+        }    else
         echo "(chafa not available - no thumbnail preview)"
     fi
     echo
