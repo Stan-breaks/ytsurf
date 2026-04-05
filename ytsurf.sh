@@ -32,6 +32,7 @@ DEFAULT_MAX_HISTORY_ENTRIES=100
 DEFAULT_NOTIFY=true
 DEFAULT_COPY_MODE=false
 DEFAULT_CHAFA_BLOCK_MODE=false
+DEFAULT_ACTION_MODE=true
 
 # System directories
 readonly CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/$SCRIPT_NAME"
@@ -69,6 +70,7 @@ player="mpv"
 applications="$HOME/.local/share/applications/ytsurf/"
 copy_mode="$DEFAULT_COPY_MODE"
 chafa_block_mode="$DEFAULT_CHAFA_BLOCK_MODE"
+action_mode="$DEFAULT_ACTION_MODE"
 
 # Runtime variables
 query=""
@@ -325,6 +327,7 @@ OPTIONS:
   --copy-url      Copy or display the video link
   --debug         Activate debug mode
   --block         Use chafa in block mode instead of sixel
+  --watch, -w     Watch videos directly without any options after choosing a video
 
 CONFIG:
   $CONFIG_FILE can contain default options like:
@@ -537,6 +540,10 @@ parse_arguments() {
       ;;
     --update | -u)
       update_script
+      ;;
+    --watch | -w)
+      action_mode=false
+      shift
       ;;
     *)
       query="$*"
@@ -812,38 +819,42 @@ unsubscribe() {
 #=============================================================================
 
 select_action() {
-  local chosen_action
-  local prompt="Select Action:"
-  local header="Available Actions"
-  local items=("watch" "download" "watch_with_friends")
+  if [[ "$action_mode" == true ]]; then
+    local chosen_action
+    local prompt="Select Action:"
+    local header="Available Actions"
+    local items=("watch" "download" "watch_with_friends")
 
-  if [[ "$use_rofi" == true ]]; then
-    chosen_action=$(printf "%s\n" "${items[@]}" | rofi -dmenu -p "$prompt" -mesg "$header")
-  elif [[ "$use_sentaku" == true ]]; then
-    chosen_action=$(printf "%s\n" "${items[@]}" | sentaku)
-  elif [[ "$use_tv" == true ]]; then
-    chosen_action=$(tv \
-      --source-command="printf '%s\n' ${items[*]}" \
-      --no-preview \
-      --no-remote \
-      --no-help-panel \
-      --input-prompt="❯ " \
-      --input-header="$header" \
-      --no-status-bar)
+    if [[ "$use_rofi" == true ]]; then
+      chosen_action=$(printf "%s\n" "${items[@]}" | rofi -dmenu -p "$prompt" -mesg "$header")
+    elif [[ "$use_sentaku" == true ]]; then
+      chosen_action=$(printf "%s\n" "${items[@]}" | sentaku)
+    elif [[ "$use_tv" == true ]]; then
+      chosen_action=$(tv \
+        --source-command="printf '%s\n' ${items[*]}" \
+        --no-preview \
+        --no-remote \
+        --no-help-panel \
+        --input-prompt="❯ " \
+        --input-header="$header" \
+        --no-status-bar)
+    else
+      chosen_action=$(printf "%s\n" "${items[@]}" | fzf --prompt="$prompt" --header="$header")
+    fi
+
+    if [[ "$chosen_action" == "watch" ]]; then
+      echo false
+    elif [[ "$chosen_action" == "watch_with_friends" ]]; then
+      player="syncplay"
+      echo false
+
+    elif [[ -z "$chosen_action" ]]; then
+      return 1
+    else
+      echo true
+    fi
   else
-    chosen_action=$(printf "%s\n" "${items[@]}" | fzf --prompt="$prompt" --header="$header")
-  fi
-
-  if [[ "$chosen_action" == "watch" ]]; then
     echo false
-  elif [[ "$chosen_action" == "watch_with_friends" ]]; then
-    player="syncplay"
-    echo false
-
-  elif [[ -z "$chosen_action" ]]; then
-    return 1
-  else
-    echo true
   fi
   return 0
 }
