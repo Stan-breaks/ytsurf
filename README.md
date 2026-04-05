@@ -133,6 +133,7 @@ OPTIONS:
   --help, -h      Show this help message
   --version       Show version info
   --copy-url      Copy or display the video link
+  --watch, -w     Watch videos directly without any options after choosing a video
 
 EXAMPLES:
   ytsurf lo-fi study mix
