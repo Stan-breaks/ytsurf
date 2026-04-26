@@ -33,6 +33,7 @@ DEFAULT_NOTIFY=true
 DEFAULT_COPY_MODE=false
 DEFAULT_CHAFA_BLOCK_MODE=false
 DEFAULT_ACTION_MODE=true
+DEFAULT_QUEUE_MODE=false
 
 # System directories
 readonly CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/$SCRIPT_NAME"
@@ -41,6 +42,7 @@ readonly CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/$SCRIPT_NAME"
 readonly CONFIG_FILE="$CONFIG_DIR/config"
 readonly SUB_FILE="$CONFIG_DIR/sub.json"
 readonly YTSURF_SOCKET="${TMPDIR:-/tmp}/ytsurf-mpv-$$.sock"
+readonly QUEUE_FILE="$HOME/.cache/$SCRIPT_NAME/history.json"
 
 #=============================================================================
 # GLOBAL VARIABLES
@@ -71,6 +73,7 @@ applications="$HOME/.local/share/applications/ytsurf/"
 copy_mode="$DEFAULT_COPY_MODE"
 chafa_block_mode="$DEFAULT_CHAFA_BLOCK_MODE"
 action_mode="$DEFAULT_ACTION_MODE"
+queue_mode="$DEFAULT_QUEUE_MODE"
 
 # Runtime variables
 query=""
@@ -152,7 +155,7 @@ search_channel() {
   fi
 }
 
-command -v notify-send >/dev/null 2>&1 && notify="true" || notify="false" # check if notify-send is installed
+command -v notify-send >/dev/null 2>&1 && notify=true || notify=false # check if notify-send is installed
 # Send notications
 send_notification() {
   if [ "$use_rofi" = false ]; then
@@ -160,7 +163,7 @@ send_notification() {
     [ -n "$2" ] && printf "\33[2K\r\033[1;34m%s - %s\n\033[0m" "$1" "$2" && return
   fi
   timeout=5000
-  if [ "$notify" = "true" ]; then
+  if [ "$notify" = true ]; then
     [ -z "${3:-}" ] && notify-send "$1" "$2" -t "$timeout"
     [ -n "${3:-}" ] && notify-send "$1" "$2" -t "$timeout" -i "$3"
   fi
@@ -250,10 +253,10 @@ EOF
         img_h=$(( img_h < 10 ? 10 : img_h ))
         img_w=$(( img_w < 20 ? 20 : img_w ))
 
-        [[ "$chafa_block_mode" == "true" ]] && {
+        [[ "$chafa_block_mode" == true ]] && {
           chafa --size="${img_w}x${img_h}" --symbols block "$img_path" 2>/dev/null || echo "(failed to render thumbnail)"
         }
-         [[ "$chafa_block_mode" == "true" ]] || { 
+         [[ "$chafa_block_mode" == true ]] || { 
           chafa --size="${img_w}x${img_h}" "$img_path" 2>/dev/null || echo "(failed to render thumbnail)"
         }
     else
@@ -377,6 +380,7 @@ configuration() {
   mkdir -p "$CACHE_DIR" "$CONFIG_DIR"
 
   [ -f "$SUB_FILE" ] || echo "[]" >"$SUB_FILE"
+  echo "[]" >"$QUEUE_FILE"
 
   # shellcheck source=/home/stan/.config/ytsurf/config
 
@@ -498,6 +502,10 @@ parse_arguments() {
       add_sub=true
       shift
       ;;
+    --queue | -q)
+      queue_mode=true
+      shift
+      ;;
     --debug)
       rm "$LOG_FILE"
       exec 3>>"$LOG_FILE"
@@ -508,7 +516,7 @@ parse_arguments() {
     --block)
       chafa_block_mode=true
       export chafa_block_mode
-      export send_notification 
+      export send_notification
       shift
       ;;
     --unsubscribe)
@@ -926,13 +934,83 @@ select_format() {
   echo "$chosen_format"
   return 0
 }
+#=============================================================================
+# QUEUE ACTIONS
+#=============================================================================
+
+add_to_queue() {
+  local video_id="$1"
+  local video_title="$2"
+  local video_duration="$3"
+  local video_author="$4"
+  local video_views="$5"
+  local video_published="$6"
+  local video_thumbnail="$7"
+
+  local tmp_queue
+  tmp_queue="$(mktemp)"
+
+  # Create new entry and merge with existing queue
+  jq -n \
+    --arg title "$video_title" \
+    --arg id "$video_id" \
+    --arg duration "$video_duration" \
+    --arg author "$video_author" \
+    --arg views "$video_views" \
+    --arg published "$video_published" \
+    --arg thumbnail "$video_thumbnail" \
+    --argjson max_entries "$max_history_entries" \
+    --slurpfile existing "$history_file" \
+    '
+        {
+            title: $title,
+            id: $id,
+            duration: $duration,
+            author: $author,
+            views: $views,
+            published: $published,
+            thumbnail: $thumbnail,
+            timestamp: now
+        } as $new_entry |
+        ([$new_entry] + ($existing[0] | map(select(.id != $id)))) |
+        .[0:$max_entries]
+        ' >"$tmp_queue"
+
+  # Atomic move
+  mv "$tmp_queue" "$QUEUE_FILE"
+}
+
+process_queue() {
+  if [[ "$format_selection" = true ]]; then
+    if ! format_code=$(select_format "$video_url"); then
+      send_notification "Format selection cancelled."
+      return 1
+    fi
+  fi
+  if [[ "$download_mode" == true ]]; then
+    local video_ids=()
+    local video_titles=()
+    mapfile -t video_ids < <(cat "$QUEUE_FILE" | jq -r '.[].id' 2>/dev/null)
+    mapfile -t video_titles < <(cat "$QUEUE_FILE" | jq -r '.[].id' 2>/dev/null)
+    if [[ ${#video_ids[@]} -eq 0 ]]; then
+      send_notification "Error" "Queue is empty or corrupted."
+      exit 1
+    fi
+    for i in "${!video_ids[@]}"; do
+      send_notification "Ytsurf" "Downloading to ${video_titles[$i]}"
+      local video_url="https://www.youtube.com/watch?v=${video_ids[$i]}"
+      download_video "$video_url" "$format_code"
+    done
+  else
+    echo "sup"
+  fi
+}
 
 #=============================================================================
 # VIDEO ACTIONS
 #=============================================================================
 
 perform_action() {
-  # Get format if format selection is enabled
   [ "$download_mode" == false ] && {
     local selection
     selection="$(select_action)" || {
@@ -942,14 +1020,17 @@ perform_action() {
     download_mode="$selection"
   }
 
-  if [[ "$format_selection" = true ]]; then
+  # Get format if format selection is enabled
+  if [[ "$format_selection" == true ]]; then
     if ! format_code=$(select_format "$video_url"); then
       send_notification "Format selection cancelled."
       return 1
     fi
   fi
 
-  if [[ "$download_mode" = true ]]; then
+  if [[ "$queue_mode" == true ]]; then
+    process_queue
+  elif [[ "$download_mode" == true ]]; then
     send_notification "Ytsurf" "Downloading to $selected_title" "$img_path"
     download_video "$video_url" "$format_code"
   else
@@ -957,8 +1038,8 @@ perform_action() {
     play_video "$video_url" "$format_code"
   fi
 
-  [ "$history_mode" == "true" ] && STATE="HISTORY"
-  [ "$history_mode" == "true" ] || {
+  [ "$history_mode" == true ] && STATE="HISTORY"
+  [ "$history_mode" == true ] || {
     STATE="SEARCH"
     query=""
   }
@@ -995,7 +1076,7 @@ play_video() {
   case "$player" in
   mpv)
     player="$player --keep-open=no --really-quiet --input-ipc-server=$YTSURF_SOCKET"
-    [ "$audio_only" == "true" ] && player="$player --no-video"
+    [ "$audio_only" == true ] && player="$player --no-video"
     [ -n "$format_code" ] && player="$player --ytdl-format=\"$format_code\""
 
     player="$player $video_url"
@@ -1003,7 +1084,7 @@ play_video() {
     player="mpv"
     ;;
   syncplay)
-    [ "$audio_only" == "true" ] && {
+    [ "$audio_only" == true ] && {
       send_notification "Error" "no support for audio only for syncplay for now"
       exit 1
     }
@@ -1012,7 +1093,7 @@ play_video() {
     ;;
   iina)
     player="$player --keep-open=no --really-quiet --input-ipc-server=$YTSURF_SOCKET"
-    [ "$audio_only" == "true" ] && player="$player --no-video"
+    [ "$audio_only" == true ] && player="$player --no-video"
     [ -n "$format_code" ] && player="$player --ytdl-format=\"$format_code\""
 
     player="$player $video_url"
@@ -1130,7 +1211,7 @@ handle_history() {
   video_id="${history_ids[$selected_index]}"
   video_url="https://www.youtube.com/watch?v=$video_id"
 
-  [ "$copy_mode" == "true" ] && {
+  [ "$copy_mode" == true ] && {
     clip "$video_url"
   }
 
@@ -1308,10 +1389,10 @@ EOF
         img_h=$(( img_h < 10 ? 10 : img_h ))
         img_w=$(( img_w < 20 ? 20 : img_w ))
 
-         [[ "$chafa_block_mode" == "true" ]] && {
+         [[ "$chafa_block_mode" == true ]] && {
           chafa --size="${img_w}x${img_h}" --symbols block "$img_path" 2>/dev/null || echo "(failed to render thumbnail)"
         }
-         [[ "$chafa_block_mode" == "true" ]] || { 
+         [[ "$chafa_block_mode" == true ]] || { 
           chafa --size="${img_w}x${img_h}" "$img_path" 2>/dev/null || echo "(failed to render thumbnail)"
         }    else
         echo "(chafa not available - no thumbnail preview)"
@@ -1376,14 +1457,14 @@ select_from_menu() {
 }
 
 handle_selection() {
-  [[ "$feed_mode" == "true" ]] && {
+  [[ "$feed_mode" == true ]] && {
     fetch_feed
     [[ "$json_data" == "[]" ]] && {
       send_notification "Error" "Failed to fetch your feed"
       exit 1
     }
   }
-  [[ "$feed_mode" == "true" ]] || {
+  [[ "$feed_mode" == true ]] || {
     get_search_query
     fetch_search_results
     [[ "$json_data" == "[]" ]] && {
@@ -1436,14 +1517,49 @@ handle_selection() {
   video_published=$(echo "$json_data" | jq -r ".[$selected_index].published")
   video_thumbnail=$(echo "$json_data" | jq -r ".[$selected_index].thumbnail")
 
-  [ "$copy_mode" == "true" ] && {
+  [ "$copy_mode" == true ] && {
     clip "$video_url"
   }
 
   img_path="$TMPDIR/thumb_$video_id.jpg"
   # Add to history and perform action
-  add_to_history "$video_id" "$selected_title" "$video_duration" "$video_author" "$video_views" "$video_published" "$video_thumbnail"
-  STATE="PLAY"
+  if [[ "$queue_mode" == true ]]; then
+    add_to_queue "$video_id" "$selected_title" "$video_duration" "$video_author" "$video_views" "$video_published" "$video_thumbnail"
+    local prompt="Select Action:"
+    local header="Available Actions"
+    local items=("Add_To_Queue" "Watch_Or_Download_Queue" "Toggle_Queue_Mode")
+
+    if [[ "$use_rofi" == true ]]; then
+      chosen_action=$(printf "%s\n" "${items[@]}" | rofi -dmenu -p "$prompt" -mesg "$header")
+    elif [[ "$use_sentaku" == true ]]; then
+      chosen_action=$(printf "%s\n" "${items[@]}" | sentaku)
+    elif [[ "$use_tv" == true ]]; then
+      chosen_action=$(tv \
+        --source-command="printf '%s\n' ${items[*]}" \
+        --no-preview \
+        --no-remote \
+        --no-help-panel \
+        --input-prompt="❯ " \
+        --input-header="$header" \
+        --no-status-bar)
+    else
+      chosen_action=$(printf "%s\n" "${items[@]}" | fzf --prompt="$prompt" --header="$header")
+    fi
+    if [[ "$chosen_action" == "Add_To_Queue" ]]; then
+      STATE="SEARCH"
+      query=""
+    elif [[ "$chosen_action" == "Watch_Or_Download_Queue" ]]; then
+      STATE="PLAY"
+    elif [[ "$chosen_action" == "Toggle_Queue_Mode" ]]; then
+      queue_mode=false
+    else
+      send_notification "Error" "no selection made"
+      exit 1
+    fi
+  else
+    add_to_history "$video_id" "$selected_title" "$video_duration" "$video_author" "$video_views" "$video_published" "$video_thumbnail"
+    STATE="PLAY"
+  fi
 }
 
 select_init() {
@@ -1470,11 +1586,11 @@ select_init() {
   fi
 
   if [[ "$chosen_action" == "Manage_subscriptions" ]]; then
-    sub_mode="true"
+    sub_mode=true
   elif [[ "$chosen_action" == "Open_your_feed" ]]; then
-    feed_mode="true"
+    feed_mode=true
   elif [[ "$chosen_action" == "View_your_history" ]]; then
-    history_mode="true"
+    history_mode=true
   elif [[ "$chosen_action" == "Search_youtube" ]]; then
     STATE="SEARCH"
   else
@@ -1486,9 +1602,9 @@ select_init() {
 # MAIN EXECUTION
 main() {
   STATE="SEARCH"
-  [[ "$history_mode" != "true" && "$sub_mode" != "true" && "$feed_mode" != "true" && -z "$query" ]] && select_init
-  [ "$history_mode" == "true" ] && STATE="HISTORY"
-  [ "$sub_mode" == "true" ] && STATE="SUB"
+  [[ "$history_mode" != true && "$sub_mode" != true && "$feed_mode" != true && "$queue_mode" != true && -z "$query" ]] && select_init
+  [ "$history_mode" == true ] && STATE="HISTORY"
+  [ "$sub_mode" == true ] && STATE="SUB"
   while :; do
     case "$STATE" in
     SEARCH) handle_selection ;;
