@@ -1003,12 +1003,24 @@ process_queue() {
       download_video "$video_url" "$format_code"
     done
   else
+    local video_durations video_authors video_views video_published video_thumbnails
+    video_durations=()
+    video_authors=()
+    video_views=()
+    video_published=()
+    video_thumbnails=()
+    mapfile -t video_durations < <("$QUEUE_FILE" | jq -r '.[].duration' 2>/dev/null)
+    mapfile -t video_authors < <("$QUEUE_FILE" | jq -r '.[].author' 2>/dev/null)
+    mapfile -t video_views < <("$QUEUE_FILE" | jq -r '.[].views' 2>/dev/null)
+    mapfile -t video_published < <("$QUEUE_FILE" | jq -r '.[].published' 2>/dev/null)
+    mapfile -t video_thumbnails < <("$QUEUE_FILE" | jq -r '.[].thumbnails' 2>/dev/null)
+
     for ((i = ${#video_ids[@]} - 1; i >= 0; i--)); do
+      add_to_history "${video_ids[$i]}" "${video_titles[$i]}" "${video_durations[$i]}" "${video_authors[$i]}" "${video_views[$i]}" "${video_published[$i]}" "${video_thumbnails[$i]}"
       send_notification "Ytsurf" "Playing ${video_titles[$i]}"
       local video_url="https://www.youtube.com/watch?v=${video_ids[$i]}"
       play_video "$video_url" "$format_code"
     done
-    echo "sup"
   fi
 }
 
