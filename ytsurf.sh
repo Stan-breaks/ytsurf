@@ -1031,7 +1031,7 @@ perform_action() {
   if [[ "$queue_mode" == true ]]; then
     process_queue
   elif [[ "$download_mode" == true ]]; then
-    send_notification "Ytsurf" "Downloading to $selected_title" "$img_path"
+    send_notification "Ytsurf" "Downloading $selected_title" "$img_path"
     download_video "$video_url" "$format_code"
   else
     send_notification "Ytsurf" "Playing $selected_title" "$img_path"
@@ -1055,6 +1055,7 @@ download_video() {
   local yt_dlp_args=(
     -o "$download_dir/%(title)s [%(id)s].%(ext)s"
     --audio-quality 0
+    --quiet
   )
 
   if [[ "$audio_only" = true ]]; then
@@ -1067,6 +1068,8 @@ download_video() {
   fi
 
   yt-dlp "${yt_dlp_args[@]}" "$video_url"
+
+  send_notification "Ytsurf" "Downloading done"
 }
 
 play_video() {
