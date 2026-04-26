@@ -987,21 +987,27 @@ process_queue() {
       return 1
     fi
   fi
+  local video_ids=()
+  local video_titles=()
+  mapfile -t video_ids < <("$QUEUE_FILE" | jq -r '.[].id' 2>/dev/null)
+  mapfile -t video_titles < <("$QUEUE_FILE" | jq -r '.[].title' 2>/dev/null)
+  if [[ ${#video_ids[@]} -eq 0 ]]; then
+    send_notification "Error" "Queue is empty or corrupted."
+    exit 1
+  fi
+
   if [[ "$download_mode" == true ]]; then
-    local video_ids=()
-    local video_titles=()
-    mapfile -t video_ids < <(cat "$QUEUE_FILE" | jq -r '.[].id' 2>/dev/null)
-    mapfile -t video_titles < <(cat "$QUEUE_FILE" | jq -r '.[].id' 2>/dev/null)
-    if [[ ${#video_ids[@]} -eq 0 ]]; then
-      send_notification "Error" "Queue is empty or corrupted."
-      exit 1
-    fi
     for i in "${!video_ids[@]}"; do
-      send_notification "Ytsurf" "Downloading to ${video_titles[$i]}"
+      send_notification "Ytsurf" "Downloading ${video_titles[$i]}"
       local video_url="https://www.youtube.com/watch?v=${video_ids[$i]}"
       download_video "$video_url" "$format_code"
     done
   else
+    for ((i = ${#video_ids[@]} - 1; i >= 0; i--)); do
+      send_notification "Ytsurf" "Playing ${video_titles[$i]}"
+      local video_url="https://www.youtube.com/watch?v=${video_ids[$i]}"
+      play_video "$video_url" "$format_code"
+    done
     echo "sup"
   fi
 }
