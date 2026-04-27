@@ -39,6 +39,7 @@ DEFAULT_QUEUE_MODE=false
 readonly CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/$SCRIPT_NAME"
 readonly LOG_FILE="$CACHE_DIR/$SCRIPT_NAME.log"
 readonly CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/$SCRIPT_NAME"
+readonly PLAYLIST_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/$SCRIPT_NAME/playlists"
 readonly CONFIG_FILE="$CONFIG_DIR/config"
 readonly SUB_FILE="$CONFIG_DIR/sub.json"
 readonly YTSURF_SOCKET="${TMPDIR:-/tmp}/ytsurf-mpv-$$.sock"
@@ -377,7 +378,7 @@ edit_config() {
 
 # configuration
 configuration() {
-  mkdir -p "$CACHE_DIR" "$CONFIG_DIR"
+  mkdir -p "$CACHE_DIR" "$CONFIG_DIR" "$PLAYLIST_DIR"
 
   [ -f "$SUB_FILE" ] || echo "[]" >"$SUB_FILE"
   echo "[]" >"$QUEUE_FILE"
@@ -1024,6 +1025,23 @@ process_queue() {
   fi
 }
 
+save_queue_to_playlist() {
+  local playlist
+  if [[ "$use_rofi" = true ]]; then
+    playlist=$(rofi -dmenu -p "Enter playlist name:")
+  else
+    read -rp "Enter playlist name(empty to cancel): " playlist
+  fi
+  if [[ -z "$playlist" ]]; then
+    echo "No playlist name entered. Exiting."
+    exit 1
+  fi
+  local playlist_file
+  playlist_file="$PLAYLIST_DIR/$playlist.json"
+  cp "$QUEUE_FILE" "$playlist_file"
+  exit 0
+}
+
 #=============================================================================
 # VIDEO ACTIONS
 #=============================================================================
@@ -1548,7 +1566,7 @@ handle_selection() {
     add_to_queue "$video_id" "$selected_title" "$video_duration" "$video_author" "$video_views" "$video_published" "$video_thumbnail"
     local prompt="Select Action:"
     local header="Available Actions"
-    local items=("Add_To_Queue" "Watch_Or_Download_Queue" "Toggle_Queue_Mode")
+    local items=("Add_To_Queue" "Watch_Or_Download_Queue" "Save_To_Playlist" "Toggle_Queue_Mode")
 
     if [[ "$use_rofi" == true ]]; then
       chosen_action=$(printf "%s\n" "${items[@]}" | rofi -dmenu -p "$prompt" -mesg "$header")
@@ -1571,6 +1589,8 @@ handle_selection() {
       query=""
     elif [[ "$chosen_action" == "Watch_Or_Download_Queue" ]]; then
       STATE="PLAY"
+    elif [[ "$chosen_action" == "Save_To_Playlist" ]]; then
+      save_queue_to_playlist
     elif [[ "$chosen_action" == "Toggle_Queue_Mode" ]]; then
       queue_mode=false
     else
