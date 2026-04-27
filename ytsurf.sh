@@ -988,38 +988,38 @@ process_queue() {
       return 1
     fi
   fi
-  local video_ids=()
-  local video_titles=()
-  mapfile -t video_ids < <("$QUEUE_FILE" | jq -r '.[].id' 2>/dev/null)
-  mapfile -t video_titles < <("$QUEUE_FILE" | jq -r '.[].title' 2>/dev/null)
-  if [[ ${#video_ids[@]} -eq 0 ]]; then
+  local video_id_list=()
+  local video_title_list=()
+  mapfile -t video_id_list < <("$QUEUE_FILE" | jq -r '.[].id' 2>/dev/null)
+  mapfile -t video_title_list < <("$QUEUE_FILE" | jq -r '.[].title' 2>/dev/null)
+  if [[ ${#video_id_list[@]} -eq 0 ]]; then
     send_notification "Error" "Queue is empty or corrupted."
     exit 1
   fi
 
   if [[ "$download_mode" == true ]]; then
-    for i in "${!video_ids[@]}"; do
-      send_notification "Ytsurf" "Downloading ${video_titles[$i]}"
-      local video_url="https://www.youtube.com/watch?v=${video_ids[$i]}"
+    for i in "${!video_id_list[@]}"; do
+      send_notification "Ytsurf" "Downloading ${video_title_list[$i]}"
+      local video_url="https://www.youtube.com/watch?v=${video_id_list[$i]}"
       download_video "$video_url" "$format_code"
     done
   else
-    local video_durations video_authors video_views video_published video_thumbnails
-    video_durations=()
-    video_authors=()
-    video_views=()
-    video_published=()
-    video_thumbnails=()
-    mapfile -t video_durations < <("$QUEUE_FILE" | jq -r '.[].duration' 2>/dev/null)
-    mapfile -t video_authors < <("$QUEUE_FILE" | jq -r '.[].author' 2>/dev/null)
-    mapfile -t video_views < <("$QUEUE_FILE" | jq -r '.[].views' 2>/dev/null)
-    mapfile -t video_published < <("$QUEUE_FILE" | jq -r '.[].published' 2>/dev/null)
-    mapfile -t video_thumbnails < <("$QUEUE_FILE" | jq -r '.[].thumbnails' 2>/dev/null)
+    local video_duration_list video_author_list video_view_list video_published_list video_thumbnail_list
+    video_duration_list=()
+    video_author_list=()
+    video_view_list=()
+    video_published_list=()
+    video_thumbnail_list=()
+    mapfile -t video_duration_list < <("$QUEUE_FILE" | jq -r '.[].duration' 2>/dev/null)
+    mapfile -t video_author_list < <("$QUEUE_FILE" | jq -r '.[].author' 2>/dev/null)
+    mapfile -t video_view_list < <("$QUEUE_FILE" | jq -r '.[].views' 2>/dev/null)
+    mapfile -t video_published_list < <("$QUEUE_FILE" | jq -r '.[].published' 2>/dev/null)
+    mapfile -t video_thumbnail_list < <("$QUEUE_FILE" | jq -r '.[].thumbnails' 2>/dev/null)
 
-    for ((i = ${#video_ids[@]} - 1; i >= 0; i--)); do
-      add_to_history "${video_ids[$i]}" "${video_titles[$i]}" "${video_durations[$i]}" "${video_authors[$i]}" "${video_views[$i]}" "${video_published[$i]}" "${video_thumbnails[$i]}"
-      send_notification "Ytsurf" "Playing ${video_titles[$i]}"
-      local video_url="https://www.youtube.com/watch?v=${video_ids[$i]}"
+    for ((i = ${#video_id_list[@]} - 1; i >= 0; i--)); do
+      add_to_history "${video_id_list[$i]}" "${video_title_list[$i]}" "${video_duration_list[$i]}" "${video_author_list[$i]}" "${video_view_list[$i]}" "${video_published_list[$i]}" "${video_thumbnail_list[$i]}"
+      send_notification "Ytsurf" "Playing ${video_title_list[$i]}"
+      local video_url="https://www.youtube.com/watch?v=${video_id_list[$i]}"
       play_video "$video_url" "$format_code"
     done
   fi
