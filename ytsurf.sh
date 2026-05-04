@@ -43,7 +43,7 @@ readonly PLAYLIST_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/$SCRIPT_NAME/playlists"
 readonly CONFIG_FILE="$CONFIG_DIR/config"
 readonly SUB_FILE="$CONFIG_DIR/sub.json"
 readonly YTSURF_SOCKET="${TMPDIR:-/tmp}/ytsurf-mpv-$$.sock"
-readonly QUEUE_FILE="$HOME/.cache/$SCRIPT_NAME/history.json"
+readonly QUEUE_FILE="$HOME/.cache/$SCRIPT_NAME/queue.json"
 
 #=============================================================================
 # GLOBAL VARIABLES
@@ -317,6 +317,7 @@ OPTIONS:
   --download      Download instead of playing
   --format        Interactively choose format/resolution
   --rofi          Use rofi instead of fzf for menus
+  --queue, -q     Use it to add or play queues
   --syncplay      Watch youtube with friend from the terminal
   --subscribe, -s Add a channel to subscriptions locally
   --unsubscribe   Remove a channel to subscriptions locally
@@ -990,8 +991,8 @@ process_queue() {
   fi
   local video_id_list=()
   local video_title_list=()
-  mapfile -t video_id_list < <("$QUEUE_FILE" | jq -r '.[].id' 2>/dev/null)
-  mapfile -t video_title_list < <("$QUEUE_FILE" | jq -r '.[].title' 2>/dev/null)
+  mapfile -t video_id_list < <(jq -r '.[].id' "$QUEUE_FILE" 2>/dev/null)
+  mapfile -t video_title_list < <(jq -r '.[].title' "$QUEUE_FILE" 2>/dev/null)
   if [[ ${#video_id_list[@]} -eq 0 ]]; then
     send_notification "Error" "Queue is empty or corrupted."
     exit 1
@@ -1010,11 +1011,11 @@ process_queue() {
     video_view_list=()
     video_published_list=()
     video_thumbnail_list=()
-    mapfile -t video_duration_list < <("$QUEUE_FILE" | jq -r '.[].duration' 2>/dev/null)
-    mapfile -t video_author_list < <("$QUEUE_FILE" | jq -r '.[].author' 2>/dev/null)
-    mapfile -t video_view_list < <("$QUEUE_FILE" | jq -r '.[].views' 2>/dev/null)
-    mapfile -t video_published_list < <("$QUEUE_FILE" | jq -r '.[].published' 2>/dev/null)
-    mapfile -t video_thumbnail_list < <("$QUEUE_FILE" | jq -r '.[].thumbnails' 2>/dev/null)
+    mapfile -t video_duration_list < <(jq -r '.[].duration' "$QUEUE_FILE" 2>/dev/null)
+    mapfile -t video_author_list < <(jq -r '.[].author' "$QUEUE_FILE" 2>/dev/null)
+    mapfile -t video_view_list < <(jq -r '.[].views' "$QUEUE_FILE" 2>/dev/null)
+    mapfile -t video_published_list < <(jq -r '.[].published' "$QUEUE_FILE" 2>/dev/null)
+    mapfile -t video_thumbnail_list < <(jq -r '.[].thumbnails' "$QUEUE_FILE" 2>/dev/null)
 
     for ((i = ${#video_id_list[@]} - 1; i >= 0; i--)); do
       add_to_history "${video_id_list[$i]}" "${video_title_list[$i]}" "${video_duration_list[$i]}" "${video_author_list[$i]}" "${video_view_list[$i]}" "${video_published_list[$i]}" "${video_thumbnail_list[$i]}"
