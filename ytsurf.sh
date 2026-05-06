@@ -34,6 +34,7 @@ DEFAULT_COPY_MODE=false
 DEFAULT_CHAFA_BLOCK_MODE=false
 DEFAULT_ACTION_MODE=true
 DEFAULT_QUEUE_MODE=false
+DEFAULT_PLAYLIST_MODE=false
 
 # System directories
 readonly CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/$SCRIPT_NAME"
@@ -75,6 +76,7 @@ copy_mode="$DEFAULT_COPY_MODE"
 chafa_block_mode="$DEFAULT_CHAFA_BLOCK_MODE"
 action_mode="$DEFAULT_ACTION_MODE"
 queue_mode="$DEFAULT_QUEUE_MODE"
+playlist_mode="$DEFAULT_PLAYLIST_MODE"
 
 # Runtime variables
 query=""
@@ -318,6 +320,7 @@ OPTIONS:
   --format        Interactively choose format/resolution
   --rofi          Use rofi instead of fzf for menus
   --queue, -q     Use it to add or play queues
+  --playlist      Play your saved playlist
   --syncplay      Watch youtube with friend from the terminal
   --subscribe, -s Add a channel to subscriptions locally
   --unsubscribe   Remove a channel to subscriptions locally
@@ -382,7 +385,7 @@ configuration() {
   mkdir -p "$CACHE_DIR" "$CONFIG_DIR" "$PLAYLIST_DIR"
 
   [ -f "$SUB_FILE" ] || echo "[]" >"$SUB_FILE"
-  echo "[]" >"$QUEUE_FILE"
+  rm "$QUEUE_FILE" && echo "[]" >"$QUEUE_FILE"
 
   # shellcheck source=/home/stan/.config/ytsurf/config
 
@@ -395,6 +398,7 @@ configuration() {
 #use_tv=false
 #download_mode=false
 #history_mode=false
+#playlist_mode=false
 #format_selection=false
 #download_dir="$HOME/Downloads"
 #history_file=="$HOME/.cache/ytsurf/history.json"
@@ -481,6 +485,10 @@ parse_arguments() {
       ;;
     --history)
       history_mode=true
+      shift
+      ;;
+    --playlist)
+      playlist_mode=true
       shift
       ;;
     --download | -d)
@@ -962,7 +970,7 @@ add_to_queue() {
     --arg published "$video_published" \
     --arg thumbnail "$video_thumbnail" \
     --argjson max_entries "$max_history_entries" \
-    --slurpfile existing "$history_file" \
+    --slurpfile existing "$QUEUE_FILE" \
     '
         {
             title: $title,
@@ -1043,12 +1051,80 @@ save_queue_to_playlist() {
   exit 0
 }
 
+handle_playlist() {
+  local prompt="Select Playlist:"
+  local header="Available Playlist"
+  local playlists=("$PLAYLIST_DIR"/*.json)
+  if ((${#playlists[@]} == 0)); then
+    send_notification "Error" "No playlists found in $PLAYLIST_DIR" >&2
+    exit 1
+  fi
+  local playlist
+  local names=()
+  for p in "${playlists[@]}"; do
+    name="${p##*/}"
+    name="${name%.json}"
+    names+=("$name")
+  done
+  if [[ "$use_rofi" == true ]]; then
+    name=$(printf "%s\n" "${names[@]}" | rofi -dmenu -p "$prompt" -mesg "$header")
+  elif [[ "$use_sentaku" == true ]]; then
+    name=$(printf "%s\n" "${names[@]}" | sentaku)
+  elif [[ "$use_tv" == true ]]; then
+    name=$(tv \
+      --source-command="printf '%s\n' ${names[*]}" \
+      --no-preview \
+      --no-remote \
+      --no-help-panel \
+      --input-prompt="❯ " \
+      --input-header="$header" \
+      --no-status-bar)
+  else
+    name=$(printf "%s\n" "${names[@]}" | fzf --prompt="$prompt" --header="$header")
+  fi
+
+  [[ -z "$name" ]] && {
+    send_notification "Error" "no selection made"
+    exit 1
+  }
+
+  local index=0
+  for i in "${!names[@]}"; do
+    [[ "${names[$i]}" == "$name" ]] && {
+      index=$i
+    }
+  done
+
+  local video_id_list video_title_list video_duration_list video_author_list video_view_list video_published_list video_thumbnail_list
+  video_id_list=()
+  video_title_list=()
+  video_duration_list=()
+  video_author_list=()
+  video_view_list=()
+  video_published_list=()
+  video_thumbnail_list=()
+  mapfile -t video_duration_list < <(jq -r '.[].duration' "${playlists[$index]}" 2>/dev/null)
+  mapfile -t video_author_list < <(jq -r '.[].author' "${playlists[$index]}" 2>/dev/null)
+  mapfile -t video_view_list < <(jq -r '.[].views' "${playlists[$index]}" 2>/dev/null)
+  mapfile -t video_published_list < <(jq -r '.[].published' "${playlists[$index]}" 2>/dev/null)
+  mapfile -t video_thumbnail_list < <(jq -r '.[].thumbnails' "${playlists[$index]}" 2>/dev/null)
+  mapfile -t video_id_list < <(jq -r '.[].id' "${playlists[$index]}" 2>/dev/null)
+  mapfile -t video_title_list < <(jq -r '.[].title' "${playlists[$index]}" 2>/dev/null)
+
+  for ((i = ${#video_id_list[@]} - 1; i >= 0; i--)); do
+    add_to_history "${video_id_list[$i]}" "${video_title_list[$i]}" "${video_duration_list[$i]}" "${video_author_list[$i]}" "${video_view_list[$i]}" "${video_published_list[$i]}" "${video_thumbnail_list[$i]}"
+    send_notification "Ytsurf" "Playing ${video_title_list[$i]}"
+    local video_url="https://www.youtube.com/watch?v=${video_id_list[$i]}"
+    play_video "$video_url" "$format_code"
+  done
+}
+
 #=============================================================================
 # VIDEO ACTIONS
 #=============================================================================
 
 perform_action() {
-  [ "$download_mode" == false ] && {
+  [ "$download_mode" == false ] && [ "$playlist_mode" == false ] && {
     local selection
     selection="$(select_action)" || {
       send_notification "Error" "Action selection cancelled"
@@ -1067,6 +1143,8 @@ perform_action() {
 
   if [[ "$queue_mode" == true ]]; then
     process_queue
+  elif [[ "$playlist_mode" == true ]]; then
+    handle_playlist
   elif [[ "$download_mode" == true ]]; then
     send_notification "Ytsurf" "Downloading $selected_title" "$img_path"
     download_video "$video_url" "$format_code"
@@ -1608,7 +1686,7 @@ select_init() {
   local chosen_action
   local prompt="Select Action:"
   local header="Available Actions"
-  local items=("Search_youtube" "Manage_subscriptions" "Open_your_feed" "View_your_history")
+  local items=("Search_youtube" "Manage_subscriptions" "Open_your_feed" "View_your_history" "Select_playlist")
 
   if [[ "$use_rofi" == true ]]; then
     chosen_action=$(printf "%s\n" "${items[@]}" | rofi -dmenu -p "$prompt" -mesg "$header")
@@ -1633,6 +1711,8 @@ select_init() {
     feed_mode=true
   elif [[ "$chosen_action" == "View_your_history" ]]; then
     history_mode=true
+  elif [[ "$chosen_action" == "Select_playlist" ]]; then
+    playlist_mode=true
   elif [[ "$chosen_action" == "Search_youtube" ]]; then
     STATE="SEARCH"
   else
@@ -1644,9 +1724,10 @@ select_init() {
 # MAIN EXECUTION
 main() {
   STATE="SEARCH"
-  [[ "$history_mode" != true && "$sub_mode" != true && "$feed_mode" != true && "$queue_mode" != true && -z "$query" ]] && select_init
+  [[ "$history_mode" != true && "$sub_mode" != true && "$feed_mode" != true && "$queue_mode" != true && "$playlist_mode" != true && -z "$query" ]] && select_init
   [ "$history_mode" == true ] && STATE="HISTORY"
   [ "$sub_mode" == true ] && STATE="SUB"
+  [ "$playlist_mode" == true ] && STATE="PLAY"
   while :; do
     case "$STATE" in
     SEARCH) handle_selection ;;
