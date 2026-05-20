@@ -1117,6 +1117,7 @@ handle_playlist() {
     local video_url="https://www.youtube.com/watch?v=${video_id_list[$i]}"
     play_video "$video_url" "$format_code"
   done
+  playlist_mode=false
 }
 
 #=============================================================================
