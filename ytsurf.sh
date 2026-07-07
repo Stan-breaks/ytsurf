@@ -162,8 +162,8 @@ command -v notify-send >/dev/null 2>&1 && notify=true || notify=false # check if
 # Send notications
 send_notification() {
   if [ "$use_rofi" = false ]; then
-    [ -z "$2" ] && printf "\33[2K\r\033[1;34m%s\n\033[0m" "$1" && return
-    [ -n "$2" ] && printf "\33[2K\r\033[1;34m%s - %s\n\033[0m" "$1" "$2" && return
+    [ -z "$1" ] && printf "\33[2K\r\033[1;34m%s\n\033[0m" "$0" && return
+    [ -n "$1" ] && printf "\33[2K\r\033[1;34m%s - %s\n\033[0m" "$0" "$1" && return
   fi
   timeout=5000
   if [ "$notify" = true ]; then
@@ -362,9 +362,9 @@ update_script() {
     send_notification "Script is up to date :)"
   else
     if printf '%s\n' "$update" | patch "$which_ytsurf" -; then
-      send_notification "Ytsurf" "Script has been updated!"
+      send_notification "$SCRIPT_NAME" "Script has been updated!"
     else
-      send_notification "Ytsurf" "Can't update for some reason! update with Paru or yay if on archlinux"
+      send_notification "$SCRIPT_NAME" "Can't update for some reason! update with Paru or yay if on archlinux"
     fi
   fi
   exit 0
