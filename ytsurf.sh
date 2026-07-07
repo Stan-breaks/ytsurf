@@ -336,6 +336,7 @@ OPTIONS:
   --debug         Activate debug mode
   --block         Use chafa in block mode instead of sixel
   --watch, -w     Watch videos directly without any options after choosing a video
+  --update, -u    Update a manual install
 
 CONFIG:
   $CONFIG_FILE can contain default options like:
