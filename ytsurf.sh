@@ -354,7 +354,7 @@ EOF
 
 update_script() {
   which_ytsurf="$(command -v ytsurf)"
-  [ -z "$which_ytsurf" ] && send_notification "Can't find lobster in PATH"
+  [ -z "$which_ytsurf" ] && send_notification "Can't find ytsurf in PATH"
   [ -z "$which_ytsurf" ] && exit 1
   update=$(curl -s "https://raw.githubusercontent.com/Stan-breaks/ytsurf/main/ytsurf.sh" || exit 1)
   update="$(printf '%s\n' "$update" | diff -u "$which_ytsurf" -)"
@@ -362,9 +362,9 @@ update_script() {
     send_notification "Script is up to date :)"
   else
     if printf '%s\n' "$update" | patch "$which_ytsurf" -; then
-      send_notification "Script has been updated!"
+      send_notification "Ytsurf" "Script has been updated!"
     else
-      send_notification "Can't update for some reason! update with Paru or yay if on archlinux"
+      send_notification "Ytsurf" "Can't update for some reason! update with Paru or yay if on archlinux"
     fi
   fi
   exit 0
