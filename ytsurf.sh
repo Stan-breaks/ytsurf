@@ -362,9 +362,9 @@ update_script() {
     send_notification "Script is up to date :)"
   else
     if printf '%s\n' "$update" | patch "$which_ytsurf" -; then
-      send_notification "$SCRIPT_NAME" "Script has been updated!"
+      send_notification "Error" "Script has been updated!"
     else
-      send_notification "$SCRIPT_NAME" "Can't update for some reason! update with Paru or yay if on archlinux"
+      send_notification "Error" "Can't update for some reason! update with Paru or yay if on archlinux"
     fi
   fi
   exit 0
