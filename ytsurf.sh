@@ -385,7 +385,7 @@ configuration() {
   mkdir -p "$CACHE_DIR" "$CONFIG_DIR" "$PLAYLIST_DIR"
 
   [ -f "$SUB_FILE" ] || echo "[]" >"$SUB_FILE"
-  rm "$QUEUE_FILE" && echo "[]" >"$QUEUE_FILE"
+  echo "[]" >"$QUEUE_FILE"
 
   # shellcheck source=/home/stan/.config/ytsurf/config
 
