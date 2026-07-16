@@ -1,4 +1,5 @@
 {
+  socat
   chafa,
   curl,
   ffmpeg,
@@ -28,6 +29,7 @@ stdenvNoCC.mkDerivation {
     wrapProgram $out/bin/ytsurf \
       --prefix PATH : ${
       lib.makeBinPath [
+        socat
         chafa
         curl
         ffmpeg
