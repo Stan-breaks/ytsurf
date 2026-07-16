@@ -172,6 +172,33 @@ send_notification() {
   fi
 }
 
+# Prompt user to pick one item from a list via rofi/sentaku/tv/fzf, whichever is active
+select_from_list() {
+  local prompt="$1" header="$2"
+  shift 2
+  local items=("$@")
+  local chosen
+
+  if [[ "$use_rofi" == true ]]; then
+    chosen=$(printf "%s\n" "${items[@]}" | rofi -dmenu -p "$prompt" -mesg "$header")
+  elif [[ "$use_sentaku" == true ]]; then
+    chosen=$(printf "%s\n" "${items[@]}" | sentaku)
+  elif [[ "$use_tv" == true ]]; then
+    chosen=$(tv \
+      --source-command="printf '%s\n' ${items[*]}" \
+      --no-preview \
+      --no-remote \
+      --no-help-panel \
+      --input-prompt="❯ " \
+      --input-header="$header" \
+      --no-status-bar)
+  else
+    chosen=$(printf "%s\n" "${items[@]}" | fzf --prompt="$prompt" --header="$header")
+  fi
+
+  echo "$chosen"
+}
+
 #Send to clipboard
 clip() {
   local url
@@ -589,23 +616,7 @@ manage_subscriptions() {
     local header="Available Actions"
     local items=("Sync_Subscriptions" "Add_Subscription" "Remove_Subscription")
 
-    if [[ "$use_rofi" == true ]]; then
-      chosen_action=$(printf "%s\n" "${items[@]}" | rofi -dmenu -p "$prompt" -mesg "$header")
-    elif [[ "$use_tv" == true ]]; then
-      chosen_action=$(tv \
-        --source-command="printf '%s\n' ${items[*]}" \
-        --no-preview \
-        --no-remote \
-        --no-help-panel \
-        --input-prompt="❯ " \
-        --input-header="$header" \
-        --no-status-bar)
-
-    elif [[ "$use_sentaku" == true ]]; then
-      chosen_action=$(printf "%s\n" "${items[@]}" | sentaku)
-    else
-      chosen_action=$(printf "%s\n" "${items[@]}" | fzf --prompt="$prompt" --header="$header")
-    fi
+    chosen_action=$(select_from_list "$prompt" "$header" "${items[@]}")
 
     if [[ "$chosen_action" == "Sync_Subscriptions" ]]; then
       sync_subs
@@ -627,43 +638,13 @@ sync_subs() {
   local prompt="Select Action:"
   local header="This is gonna overwrite your existing subs. Continue?"
   local items=("Yes" "No")
-  if [[ "$use_rofi" == true ]]; then
-    chosen_action=$(printf "%s\n" "${items[@]}" | rofi -dmenu -p "$prompt" -mesg "$header")
-  elif [[ "$use_tv" == true ]]; then
-    chosen_action=$(tv \
-      --source-command="printf '%s\n' ${items[*]}" \
-      --no-preview \
-      --no-remote \
-      --no-help-panel \
-      --input-prompt="❯ " \
-      --input-header="$header" \
-      --no-status-bar)
-  elif [[ "$use_sentaku" == true ]]; then
-    chosen_action=$(printf "%s\n" "${items[@]}" | sentaku)
-  else
-    chosen_action=$(printf "%s\n" "${items[@]}" | fzf --prompt="$prompt" --header="$header")
-  fi
+  chosen_action=$(select_from_list "$prompt" "$header" "${items[@]}")
 
   if [[ "$chosen_action" == "Yes" ]]; then
     prompt="Select Broswer:"
     header="Select a broswer where your youtube has be logged in"
     items=("brave" "chrome" "chromium" "edge" "firefox" "opera" "safari" "vivaldi" "whale")
-    if [[ "$use_rofi" == true ]]; then
-      chosen_action=$(printf "%s\n" "${items[@]}" | rofi -dmenu -p "$prompt" -mesg "$header")
-    elif [[ "$use_tv" == true ]]; then
-      chosen_action=$(tv \
-        --source-command="printf '%s\n' ${items[*]}" \
-        --no-preview \
-        --no-remote \
-        --no-help-panel \
-        --input-prompt="❯ " \
-        --input-header="$header" \
-        --no-status-bar)
-    elif [[ "$use_sentaku" == true ]]; then
-      chosen_action=$(printf "%s\n" "${items[@]}" | sentaku)
-    else
-      chosen_action=$(printf "%s\n" "${items[@]}" | fzf --prompt="$prompt" --header="$header")
-    fi
+    chosen_action=$(select_from_list "$prompt" "$header" "${items[@]}")
     if json_data=$(yt-dlp --cookies-from-browser "$chosen_action" --flat-playlist https://www.youtube.com/feed/channels -J); then
       echo "$json_data" | jq -r '.entries
       | map({
@@ -844,22 +825,7 @@ select_action() {
     local header="Available Actions"
     local items=("watch" "download" "watch_with_friends")
 
-    if [[ "$use_rofi" == true ]]; then
-      chosen_action=$(printf "%s\n" "${items[@]}" | rofi -dmenu -p "$prompt" -mesg "$header")
-    elif [[ "$use_sentaku" == true ]]; then
-      chosen_action=$(printf "%s\n" "${items[@]}" | sentaku)
-    elif [[ "$use_tv" == true ]]; then
-      chosen_action=$(tv \
-        --source-command="printf '%s\n' ${items[*]}" \
-        --no-preview \
-        --no-remote \
-        --no-help-panel \
-        --input-prompt="❯ " \
-        --input-header="$header" \
-        --no-status-bar)
-    else
-      chosen_action=$(printf "%s\n" "${items[@]}" | fzf --prompt="$prompt" --header="$header")
-    fi
+    chosen_action=$(select_from_list "$prompt" "$header" "${items[@]}")
 
     if [[ "$chosen_action" == "watch" ]]; then
       echo false
@@ -912,22 +878,7 @@ select_format() {
   local prompt="Select video quality:"
   local header="Available Resolutions"
 
-  if [[ "$use_rofi" = true ]]; then
-    chosen_res=$(printf "%s\n" "${format_options[@]}" | rofi -dmenu -p "$prompt" -mesg "$header")
-  elif [[ "$use_sentaku" == true ]]; then
-    chosen_res=$(printf "%s\n" "${format_options[@]}" | sentaku)
-  elif [[ "$use_tv" == true ]]; then
-    chosen_action=$(tv \
-      --source-command="printf '%s\n' ${items[*]}" \
-      --no-preview \
-      --no-remote \
-      --no-help-panel \
-      --input-prompt="❯ " \
-      --input-header="$header" \
-      --no-status-bar)
-  else
-    chosen_res=$(printf "%s\n" "${format_options[@]}" | fzf --prompt="$prompt" --header="$header")
-  fi
+  chosen_res=$(select_from_list "$prompt" "$header" "${format_options[@]}")
 
   # Process selection
   if [[ -z "$chosen_res" ]]; then
@@ -1067,22 +1018,7 @@ handle_playlist() {
     name="${name%.json}"
     names+=("$name")
   done
-  if [[ "$use_rofi" == true ]]; then
-    name=$(printf "%s\n" "${names[@]}" | rofi -dmenu -p "$prompt" -mesg "$header")
-  elif [[ "$use_sentaku" == true ]]; then
-    name=$(printf "%s\n" "${names[@]}" | sentaku)
-  elif [[ "$use_tv" == true ]]; then
-    name=$(tv \
-      --source-command="printf '%s\n' ${names[*]}" \
-      --no-preview \
-      --no-remote \
-      --no-help-panel \
-      --input-prompt="❯ " \
-      --input-header="$header" \
-      --no-status-bar)
-  else
-    name=$(printf "%s\n" "${names[@]}" | fzf --prompt="$prompt" --header="$header")
-  fi
+  name=$(select_from_list "$prompt" "$header" "${names[@]}")
 
   [[ -z "$name" ]] && {
     send_notification "Error" "no selection made"
@@ -1649,22 +1585,7 @@ handle_selection() {
     local header="Available Actions"
     local items=("Add_To_Queue" "Watch_Or_Download_Queue" "Save_To_Playlist" "Toggle_Queue_Mode")
 
-    if [[ "$use_rofi" == true ]]; then
-      chosen_action=$(printf "%s\n" "${items[@]}" | rofi -dmenu -p "$prompt" -mesg "$header")
-    elif [[ "$use_sentaku" == true ]]; then
-      chosen_action=$(printf "%s\n" "${items[@]}" | sentaku)
-    elif [[ "$use_tv" == true ]]; then
-      chosen_action=$(tv \
-        --source-command="printf '%s\n' ${items[*]}" \
-        --no-preview \
-        --no-remote \
-        --no-help-panel \
-        --input-prompt="❯ " \
-        --input-header="$header" \
-        --no-status-bar)
-    else
-      chosen_action=$(printf "%s\n" "${items[@]}" | fzf --prompt="$prompt" --header="$header")
-    fi
+    chosen_action=$(select_from_list "$prompt" "$header" "${items[@]}")
     if [[ "$chosen_action" == "Add_To_Queue" ]]; then
       STATE="SEARCH"
       query=""
@@ -1690,22 +1611,7 @@ select_init() {
   local header="Available Actions"
   local items=("Search_youtube" "Manage_subscriptions" "Open_your_feed" "View_your_history" "Select_playlist")
 
-  if [[ "$use_rofi" == true ]]; then
-    chosen_action=$(printf "%s\n" "${items[@]}" | rofi -dmenu -p "$prompt" -mesg "$header")
-  elif [[ "$use_sentaku" == true ]]; then
-    chosen_action=$(printf "%s\n" "${items[@]}" | sentaku)
-  elif [[ "$use_tv" == true ]]; then
-    chosen_action=$(tv \
-      --source-command="printf '%s\n' ${items[*]}" \
-      --no-preview \
-      --no-remote \
-      --no-help-panel \
-      --input-prompt="❯ " \
-      --input-header="$header" \
-      --no-status-bar)
-  else
-    chosen_action=$(printf "%s\n" "${items[@]}" | fzf --prompt="$prompt" --header="$header")
-  fi
+  chosen_action=$(select_from_list "$prompt" "$header" "${items[@]}")
 
   if [[ "$chosen_action" == "Manage_subscriptions" ]]; then
     sub_mode=true
