@@ -162,8 +162,8 @@ command -v notify-send >/dev/null 2>&1 && notify=true || notify=false # check if
 # Send notications
 send_notification() {
   if [ "$use_rofi" = false ]; then
-    [ -z "$1" ] && printf "\33[2K\r\033[1;34m%s\n\033[0m" "$0" && return
-    [ -n "$1" ] && printf "\33[2K\r\033[1;34m%s - %s\n\033[0m" "$0" "$1" && return
+    [ -z "${2:-}" ] && printf "\33[2K\r\033[1;34m%s\n\033[0m" "$1" && return
+    [ -n "${2:-}" ] && printf "\33[2K\r\033[1;34m%s - %s\n\033[0m" "$1" "$2" && return
   fi
   timeout=5000
   if [ "$notify" = true ]; then
