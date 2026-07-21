@@ -77,6 +77,7 @@ chafa_block_mode="$DEFAULT_CHAFA_BLOCK_MODE"
 action_mode="$DEFAULT_ACTION_MODE"
 queue_mode="$DEFAULT_QUEUE_MODE"
 playlist_mode="$DEFAULT_PLAYLIST_MODE"
+playlist_url=""
 
 # Runtime variables
 query=""
@@ -487,7 +488,12 @@ parse_arguments() {
       history_mode=true
       shift
       ;;
-    --playlist)
+    --playlist) 
+      playlist_mode=true
+      [[ -z "$2" ]] || {
+        playlist_url="$2"
+        shift
+      }
       playlist_mode=true
       shift
       ;;
@@ -1052,6 +1058,10 @@ save_queue_to_playlist() {
 }
 
 handle_playlist() {
+  [[ -z "$playlist_url" ]] || {
+    echo "$playlist_url"
+    exit 0
+  }
   local prompt="Select Playlist:"
   local header="Available Playlist"
   local playlists=("$PLAYLIST_DIR"/*.json)
