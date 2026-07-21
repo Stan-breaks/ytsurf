@@ -43,7 +43,6 @@ readonly CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/$SCRIPT_NAME"
 readonly PLAYLIST_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/$SCRIPT_NAME/playlists"
 readonly CONFIG_FILE="$CONFIG_DIR/config"
 readonly SUB_FILE="$CONFIG_DIR/sub.json"
-readonly YTSURF_SOCKET="${TMPDIR:-/tmp}/ytsurf-mpv-$$.sock"
 readonly QUEUE_FILE="$HOME/.cache/$SCRIPT_NAME/queue.json"
 
 #=============================================================================
@@ -446,6 +445,7 @@ EOF
 # Setup cleanup trap
 setup_cleanup() {
   TMPDIR=$(mktemp -d 2>/dev/null || mktemp -d -t ytsurf.XXXXXX)
+  YTSURF_SOCKET="${TMPDIR:-/tmp}/ytsurf-mpv-$$.sock"
   trap 'rm -rf "$TMPDIR"' EXIT
 }
 
@@ -455,7 +455,7 @@ check_dependencies() {
 
   # Required dependencies
 
-  local required_deps=("yt-dlp" "mpv" "jq" "curl" "perl")
+  local required_deps=("yt-dlp" "mpv" "jq" "curl" "perl" "socat")
   [ "$player" == "syncplay" ] && required_deps+=("syncplay")
   [ "$player" == "iina" ] && required_deps+=("iina")
 
@@ -1125,6 +1125,52 @@ download_video() {
   send_notification "Ytsurf" "Downloading done"
 }
 
+track_playback_position(){
+  if [[ -z "$1" || -z "$2" ]];then 
+    return 1
+  fi
+
+  local mpv_pid=$1
+  local video_id="${2#https://www.youtube.com/watch?v=}"
+
+  local video_ids=()
+  mapfile -t video_ids < <(jq -r '.[].id' "$history_file" 2>/dev/null)
+  if [[ ${#video_ids[@]} -eq 0 ]]; then
+    return 1
+  fi
+
+
+  local video_index=-1
+  for i in "${!video_ids[@]}"; do
+    if [[ "${video_ids[$i]}" == "$video_id" ]]; then
+      video_index=$i
+      break 
+    fi
+  done
+
+  if [[ $video_index -lt 0 ]]; then
+    return 1
+  fi
+
+  local tmp_history
+  tmp_history="$(mktemp)"
+  local position
+  local i
+  for i in {1..100}; do
+    [[ -S "$YTSURF_SOCKET" ]] && break
+    sleep 0.1
+  done
+  while [[ -S "$YTSURF_SOCKET" ]] && kill -0 "$mpv_pid" 2>/dev/null; do
+    position=$(echo '{"command":["get_property","time-pos"]}' | socat - "UNIX-CONNECT:$YTSURF_SOCKET" | jq -r '.data')
+    [[ -n "$position" && "$position" != "null" ]] && {
+      jq --argjson i "$video_index" --argjson p "$position" '.[$i].position=$p' "$history_file" > "$tmp_history"
+      mv "$tmp_history" "$history_file"
+    }
+    sleep 10
+  done
+  rm -f "$tmp_history"
+}
+
 play_video() {
   local video_url="$1"
   local format_code="$2"
@@ -1135,8 +1181,16 @@ play_video() {
     [ "$audio_only" == true ] && player="$player --no-video"
     [ -n "$format_code" ] && player="$player --ytdl-format=\"$format_code\""
 
+
     player="$player $video_url"
-    eval "$player"
+    eval "$player" &
+    local mpv_pid=$!
+    track_playback_position "$mpv_pid" "$video_url" &
+    local watcher_pid=$!
+    trap 'kill "$mpv_pid" "$watcher_pid" 2>/dev/null' INT TERM
+    wait "$mpv_pid"
+    kill "$watcher_pid" 2>/dev/null; wait "$watcher_pid" 2>/dev/null
+    trap - INT TERM
     player="mpv"
     ;;
   syncplay)
