@@ -1131,27 +1131,6 @@ track_playback_position(){
   fi
 
   local mpv_pid=$1
-  local video_id="${2#https://www.youtube.com/watch?v=}"
-
-  local video_ids=()
-  mapfile -t video_ids < <(jq -r '.[].id' "$history_file" 2>/dev/null)
-  if [[ ${#video_ids[@]} -eq 0 ]]; then
-    return 1
-  fi
-
-
-  local video_index=-1
-  for i in "${!video_ids[@]}"; do
-    if [[ "${video_ids[$i]}" == "$video_id" ]]; then
-      video_index=$i
-      break 
-    fi
-  done
-
-  if [[ $video_index -lt 0 ]]; then
-    return 1
-  fi
-
   local tmp_history
   tmp_history="$(mktemp)"
   local position
@@ -1163,7 +1142,7 @@ track_playback_position(){
   while [[ -S "$YTSURF_SOCKET" ]] && kill -0 "$mpv_pid" 2>/dev/null; do
     position=$(echo '{"command":["get_property","time-pos"]}' | socat - "UNIX-CONNECT:$YTSURF_SOCKET" | jq -r '.data')
     [[ -n "$position" && "$position" != "null" ]] && {
-      jq --argjson i "$video_index" --argjson p "$position" '.[$i].position=$p' "$history_file" > "$tmp_history"
+      jq --argjson i "$2" --argjson p "$position" '.[$i].position=$p' "$history_file" > "$tmp_history"
       mv "$tmp_history" "$history_file"
     }
     sleep 10
@@ -1175,22 +1154,43 @@ play_video() {
   local video_url="$1"
   local format_code="$2"
 
+  # local video_id="${video_url#https://www.youtube.com/watch?v=}"
+  # local video_ids=()
+  # mapfile -t video_ids < <(jq -r '.[].id' "$history_file" 2>/dev/null)
+  # if [[ ${#video_ids[@]} -eq 0 ]]; then
+  #   exit 1
+  # fi
+  #
+  # local video_index=-1
+  # for i in "${!video_ids[@]}"; do
+  #   if [[ "${video_ids[$i]}" == "$video_id" ]]; then
+  #     video_index=$i
+  #     break 
+  #   fi
+  # done
+  #
+  # if [[ $video_index -lt 0 ]]; then
+  #   exit 1
+  # fi
+  # local position
+  # position=$(jq --argjson i "$video_index" -r '.[$i].position' "history_file")
+  #
   case "$player" in
   mpv)
-    player="$player --keep-open=no --really-quiet --input-ipc-server=$YTSURF_SOCKET"
+    player="$player --save-position-on-quit --keep-open=no --really-quiet --input-ipc-server=$YTSURF_SOCKET"
     [ "$audio_only" == true ] && player="$player --no-video"
     [ -n "$format_code" ] && player="$player --ytdl-format=\"$format_code\""
 
 
     player="$player $video_url"
-    eval "$player" &
-    local mpv_pid=$!
-    track_playback_position "$mpv_pid" "$video_url" &
-    local watcher_pid=$!
-    trap 'kill "$mpv_pid" "$watcher_pid" 2>/dev/null' INT TERM
-    wait "$mpv_pid"
-    kill "$watcher_pid" 2>/dev/null; wait "$watcher_pid" 2>/dev/null
-    trap - INT TERM
+    eval "$player"
+    # local mpv_pid=$!
+    # track_playback_position "$mpv_pid" "$video_index" &
+    # local watcher_pid=$!
+    # trap 'kill "$mpv_pid" "$watcher_pid" 2>/dev/null' INT TERM
+    # wait "$mpv_pid"
+    # kill "$watcher_pid" 2>/dev/null; wait "$watcher_pid" 2>/dev/null
+    # trap - INT TERM
     player="mpv"
     ;;
   syncplay)
@@ -1202,7 +1202,7 @@ play_video() {
     exit 0
     ;;
   iina)
-    player="$player --keep-open=no --really-quiet --input-ipc-server=$YTSURF_SOCKET"
+    player="$player --mpv-save-position-on-quit --keep-open=no --really-quiet --input-ipc-server=$YTSURF_SOCKET"
     [ "$audio_only" == true ] && player="$player --no-video"
     [ -n "$format_code" ] && player="$player --ytdl-format=\"$format_code\""
 
