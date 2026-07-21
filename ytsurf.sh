@@ -1125,30 +1125,38 @@ download_video() {
   send_notification "Ytsurf" "Downloading done"
 }
 
-track_playback_position(){
-  if [[ -z "$1" || -z "$2" ]];then 
-    return 1
-  fi
-
-  local mpv_pid=$1
-  local tmp_history
-  tmp_history="$(mktemp)"
-  local position
-  local i
-  for i in {1..100}; do
-    [[ -S "$YTSURF_SOCKET" ]] && break
-    sleep 0.1
-  done
-  while [[ -S "$YTSURF_SOCKET" ]] && kill -0 "$mpv_pid" 2>/dev/null; do
-    position=$(echo '{"command":["get_property","time-pos"]}' | socat - "UNIX-CONNECT:$YTSURF_SOCKET" | jq -r '.data')
-    [[ -n "$position" && "$position" != "null" ]] && {
-      jq --argjson i "$2" --argjson p "$position" '.[$i].position=$p' "$history_file" > "$tmp_history"
-      mv "$tmp_history" "$history_file"
-    }
-    sleep 10
-  done
-  rm -f "$tmp_history"
-}
+#=============================================================================
+# UNUSED: socat-based position polling, kept for a future player (e.g. vlc)
+# that has no native --save-position-on-quit equivalent. mpv/iina use their
+# own built-in save-on-quit flag instead (see play_video). Polling the IPC
+# socket like this adds latency (see call site, commented out below), so
+# only wire this back in for a player that truly needs it.
+#-----------------------------------------------------------------------------
+# track_playback_position(){
+#   if [[ -z "$1" || -z "$2" ]];then
+#     return 1
+#   fi
+#
+#   local mpv_pid=$1
+#   local tmp_history
+#   tmp_history="$(mktemp)"
+#   local position
+#   local i
+#   for i in {1..100}; do
+#     [[ -S "$YTSURF_SOCKET" ]] && break
+#     sleep 0.1
+#   done
+#   while [[ -S "$YTSURF_SOCKET" ]] && kill -0 "$mpv_pid" 2>/dev/null; do
+#     position=$(echo '{"command":["get_property","time-pos"]}' | socat - "UNIX-CONNECT:$YTSURF_SOCKET" | jq -r '.data')
+#     [[ -n "$position" && "$position" != "null" ]] && {
+#       jq --argjson i "$2" --argjson p "$position" '.[$i].position=$p' "$history_file" > "$tmp_history"
+#       mv "$tmp_history" "$history_file"
+#     }
+#     sleep 10
+#   done
+#   rm -f "$tmp_history"
+# }
+#=============================================================================
 
 play_video() {
   local video_url="$1"
