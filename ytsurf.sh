@@ -545,7 +545,7 @@ parse_arguments() {
       shift
       ;;
     --debug)
-      rm "$LOG_FILE"
+      rm -f "$LOG_FILE"
       exec 3>>"$LOG_FILE"
       BASH_XTRACEFD=3
       set -x
@@ -592,8 +592,8 @@ parse_arguments() {
       shift
       ;;
     *)
-      query="$*"
-      break
+      query="${query:+$query }$1"
+      shift
       ;;
     esac
   done
