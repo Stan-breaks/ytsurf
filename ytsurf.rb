@@ -15,6 +15,7 @@ class Ytsurf < Formula
   depends_on "fzf"
   depends_on "chafa"
   depends_on "ffmpeg"
+  depends_on "socat"
 
   def install
     system "mv ytsurf.sh ytsurf"
