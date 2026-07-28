@@ -22,6 +22,7 @@ YouTube in your terminal. Clean and distraction-free.
 - Playback history and quick re-play
 - Resumes playback where you left off (mpv/iina save position on quit)
 - Queue videos and saved playlists
+- Autoplay the next result in the list once a video ends
 - Adjustable search result limit
 - Custom download directory
 - Self-update (--update) for manual installations only
@@ -125,6 +126,7 @@ OPTIONS:
   --rofi          Use rofi instead of fzf for menus
   --queue, -q     Use it to add or play queues
   --playlist      Play your saved playlist
+  --autoplay, -a  Keep playing the next result in the list once a video ends
   --syncplay      Watch youtube with friend from the terminal
   --subscribe, -s Add a channel to subscriptions locally
   --unsubscribe   Remove a channel to subscriptions locally
@@ -145,7 +147,10 @@ EXAMPLES:
   ytsurf --audio orchestral soundtrack
   ytsurf --download --format jazz piano
   ytsurf --history
+  ytsurf --autoplay --watch lo-fi study mix
 ```
+
+Autoplay continues down whichever list you picked from (search results, history, or feed), starting right after the video you selected. Since it plays straight through, stop the chain with `Ctrl+C` in the terminal.
 
 Run `ytsurf` without arguments to enter interactive mode.
 

@@ -35,6 +35,7 @@ DEFAULT_CHAFA_BLOCK_MODE=false
 DEFAULT_ACTION_MODE=true
 DEFAULT_QUEUE_MODE=false
 DEFAULT_PLAYLIST_MODE=false
+DEFAULT_AUTOPLAY_MODE=false
 
 # System directories
 readonly CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/$SCRIPT_NAME"
@@ -76,6 +77,7 @@ chafa_block_mode="$DEFAULT_CHAFA_BLOCK_MODE"
 action_mode="$DEFAULT_ACTION_MODE"
 queue_mode="$DEFAULT_QUEUE_MODE"
 playlist_mode="$DEFAULT_PLAYLIST_MODE"
+autoplay_mode="$DEFAULT_AUTOPLAY_MODE"
 
 # Runtime variables
 query=""
@@ -347,6 +349,7 @@ OPTIONS:
   --rofi          Use rofi instead of fzf for menus
   --queue, -q     Use it to add or play queues
   --playlist      Play your saved playlist
+  --autoplay, -a  Keep playing the next result in the list once a video ends
   --syncplay      Watch youtube with friend from the terminal
   --subscribe, -s Add a channel to subscriptions locally
   --unsubscribe   Remove a channel to subscriptions locally
@@ -426,6 +429,7 @@ configuration() {
 #download_mode=false
 #history_mode=false
 #playlist_mode=false
+#autoplay_mode=false
 #format_selection=false
 #download_dir="$HOME/Downloads"
 #history_file=="$HOME/.cache/ytsurf/history.json"
@@ -517,6 +521,10 @@ parse_arguments() {
       ;;
     --playlist)
       playlist_mode=true
+      shift
+      ;;
+    --autoplay | -a)
+      autoplay_mode=true
       shift
       ;;
     --download | -d)
@@ -1089,6 +1097,7 @@ perform_action() {
   else
     send_notification "Ytsurf" "Playing $selected_title" "$img_path"
     play_video "$video_url" "$format_code"
+    [ "$autoplay_mode" == true ] && autoplay_next
   fi
 
   [ "$history_mode" == true ] && STATE="HISTORY"
@@ -1096,6 +1105,32 @@ perform_action() {
     STATE="SEARCH"
     query=""
   }
+}
+
+# Keep playing whatever comes after the current selection in the same
+# result list (search/history/feed), in list order, until it's exhausted.
+autoplay_next() {
+  [[ -z "${selected_index:-}" || "$selected_index" -lt 0 ]] && return 0
+
+  local total
+  total=$(jq 'length' <<<"$json_data" 2>/dev/null) || return 0
+
+  local i next_id next_title next_duration next_author next_views next_published next_thumbnail
+  for ((i = selected_index + 1; i < total; i++)); do
+    next_id=$(jq -r ".[$i].id" <<<"$json_data")
+    next_title=$(jq -r ".[$i].title" <<<"$json_data")
+    next_duration=$(jq -r ".[$i].duration" <<<"$json_data")
+    next_author=$(jq -r ".[$i].author" <<<"$json_data")
+    next_views=$(jq -r ".[$i].views" <<<"$json_data")
+    next_published=$(jq -r ".[$i].published" <<<"$json_data")
+    next_thumbnail=$(jq -r ".[$i].thumbnail" <<<"$json_data")
+
+    [[ -z "$next_id" || "$next_id" == "null" ]] && continue
+
+    add_to_history "$next_id" "$next_title" "$next_duration" "$next_author" "$next_views" "$next_published" "$next_thumbnail"
+    send_notification "Ytsurf" "Autoplaying $next_title"
+    play_video "https://www.youtube.com/watch?v=$next_id" "$format_code"
+  done
 }
 
 download_video() {
@@ -1311,7 +1346,7 @@ handle_history() {
   }
 
   # Find selected video
-  local selected_index=-1
+  selected_index=-1
   for i in "${!history_titles[@]}"; do
     if [[ "${history_titles[$i]}" == "$selected_title" ]]; then
       selected_index=$i
@@ -1612,7 +1647,7 @@ handle_selection() {
     exit 1
   }
 
-  local selected_index=-1
+  selected_index=-1
   for i in "${!menu_list[@]}"; do
     [ "${menu_list[$i]}" == "$selected_title" ] && {
       selected_index=$i
