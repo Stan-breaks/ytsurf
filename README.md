@@ -1,15 +1,10 @@
-# ytsurf
+# Ytsurf
 
 YouTube in your terminal. Clean and distraction-free.
-<p align="center">
-  <a href="xmpp:ytsurf@groups.stanbreaks.com?join">
-    <img src="https://img.shields.io/badge/XMPP-ytsurf%40groups.stanbreaks.com-0DBD8B?logo=xmpp&logoColor=white" alt="XMPP group" />
-  </a>
-</p>
 
 <p align="center">
-  <a href="https://discord.gg/z6u6zwwedz" target="_blank" rel="noopener noreferrer">
-    <img src="https://img.shields.io/badge/Discord-Join%20the%20community-5865F2?logo=discord&logoColor=white" alt="Join our Discord" />
+  <a href="xmpp:ytsurf@groups.stanbreaks.com?join">
+    <img src="https://img.shields.io/badge/XMPP-join the community-0DBD8B?logo=xmpp&logoColor=white" alt="XMPP group" />
   </a>
 </p>
 
