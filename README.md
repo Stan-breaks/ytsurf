@@ -2,7 +2,15 @@
 
 YouTube in your terminal. Clean and distraction-free.
 <p align="center">
-  <img src="https://img.shields.io/badge/XMPP-ytsurf%40groups.stanbreaks.com-0DBD8B?logo=xmpp&logoColor=white" alt="XMPP group" />
+  <a href="xmpp:ytsurf@groups.stanbreaks.com?join">
+    <img src="https://img.shields.io/badge/XMPP-ytsurf%40groups.stanbreaks.com-0DBD8B?logo=xmpp&logoColor=white" alt="XMPP group" />
+  </a>
+</p>
+
+<p align="center">
+  <a href="https://discord.gg/z6u6zwwedz" target="_blank" rel="noopener noreferrer">
+    <img src="https://img.shields.io/badge/Discord-Join%20the%20community-5865F2?logo=discord&logoColor=white" alt="Join our Discord" />
+  </a>
 </p>
 
 <p align="center">
@@ -200,3 +208,12 @@ Check out [FUTURE_FEATURES.md](FUTURE_FEATURES.md) for upcoming ideas.
 Released under the [GNU General Public License v3.0](LICENSE).
 
 
+##  Star History
+
+<a href="https://www.star-history.com/#Stan-breaks/ytsurf&Date">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=Stan-breaks/ytsurf&type=Date&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=Stan-breaks/ytsurf&type=Date" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=Stan-breaks/ytsurf&type=Date" />
+ </picture>
+</a>
