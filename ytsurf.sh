@@ -428,7 +428,7 @@ configuration() {
 #playlist_mode=false
 #format_selection=false
 #download_dir="$HOME/Downloads"
-#history_file=="$HOME/.cache/ytsurf/history.json"
+#history_file="$HOME/.cache/ytsurf/history.json"
 #max_history_entries=20
 #notify=true
 #editor="nvim"
